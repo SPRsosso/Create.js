@@ -1,19 +1,31 @@
 import { CreateJS } from "./createjs.js";
 
-const { Vec2 } = CreateJS;
-
 const canvas = document.querySelector<HTMLCanvasElement>(".game-area");
 if (canvas) {
     const game = new CreateJS(canvas);
-    game.background("black");
+    game.init()
+        .backgroundColor("black")
+        .resizeCanvas(innerWidth, innerHeight);
 
-    const shapes = [ new CreateJS.Rect(0, 0, 20, 20).fill("white") ];
+    let line = new CreateJS.Vec2(0, -1).toLine(400, 400).width(3);
 
-    game.run(shapes);
+    console.log(line.toVec2().toString());
 
-    const vec1 = new CreateJS.Vec2(0, 0);
-    const vec2 = new CreateJS.Vec2(10, 10);
-    const vec3 = new CreateJS.Vec2(0, 1);
+    CreateJS.KeyboardEvent.deploy();
+    CreateJS.KeyboardEvent.register(CreateJS.KeyboardEvent.Key.KeyW, ( event: KeyboardEvent, isKeyUp: boolean ) => {
+        console.log("W pressed");
+    });
 
-    console.log(vec1.lerp(vec2, 0.5).toString());
+    setInterval(() => {
+        line = line
+            .toVec2()
+            .normalize()
+            .scaleTo(100)
+            .rotate(CreateJS.Math.degToRad(360 / 12))
+            .round(3)
+            .toLine(400, 400);
+
+        game.run([ line ]);
+    }, 1000);
 }
+
