@@ -11,7 +11,9 @@ if (canvas) {
 
     game.run(shapes);
 
-    const vec1 = new CreateJS.Vec2(2, 2);
+    const vec1 = new CreateJS.Vec2(0, 0);
+    const vec2 = new CreateJS.Vec2(10, 10);
+    const vec3 = new CreateJS.Vec2(0, 1);
 
-    console.log(vec1.normalize().toString());
+    console.log(vec1.lerp(vec2, 0.5).toString());
 }

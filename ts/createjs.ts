@@ -93,6 +93,23 @@ export class CreateJS {
             return this;
         }
 
+        dot(vec2: CreateJS.Vec2): number {
+            return this.x * vec2.x + this.y * vec2.y;
+        }
+
+        lerp(vec2: CreateJS.Vec2, t: number): CreateJS.Vec2 {
+            this.x = this.x * (1 - t) + vec2.x * t;
+            this.y = this.y * (1 - t) + vec2.y * t;
+
+            return this;
+        }
+
+        clamp(minVec: CreateJS.Vec2, maxVec: CreateJS.Vec2): CreateJS.Vec2 {
+            this.x = this.x < minVec.x ? minVec.x : (this.x > maxVec.x ? maxVec.x : this.x);
+            this.y = this.y < minVec.y ? minVec.y : (this.y > maxVec.y ? maxVec.y : this.y);
+            return this;
+        }
+
         length(): number {
             return Math.sqrt(this.x ** 2 + this.y ** 2);
         }
