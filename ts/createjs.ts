@@ -535,8 +535,52 @@ export class CreateJS {
         }
     }
 
-    static  = class {
+    static TimeHandler = class {
+        private static timeBefore: number = 0;
+        private static _stop: boolean = false;
+        private static _pause: boolean = false;
 
+        static wait(ms: number): Promise<void> {
+            return new Promise(( resolve, reject ) => {
+                setTimeout(() => {
+                    resolve();
+                }, ms);
+            });
+        }
+
+        static async tick(fps: number, callback: ( currentTick: number, dt: number ) => void): Promise<void> {
+            let tick = 0;
+            CreateJS.TimeHandler.timeBefore = performance.now();
+            while(true) {
+                if (CreateJS.TimeHandler._stop) {
+                    CreateJS.TimeHandler._stop = false;
+                    break;
+                }
+
+                if (CreateJS.TimeHandler._pause) {
+                    continue;
+                }
+
+                const dt = (performance.now() - CreateJS.TimeHandler.timeBefore) / fps;
+                CreateJS.TimeHandler.timeBefore = performance.now();
+
+                callback(++tick, dt);
+                await CreateJS.TimeHandler.wait(fps);
+            }
+        }
+
+        static stop(): void {
+            CreateJS.TimeHandler.timeBefore = 0;
+            CreateJS.TimeHandler._stop = true;
+        }
+
+        static pause(): void {
+            CreateJS.TimeHandler._pause = true;
+        }
+
+        static resume(): void {
+            CreateJS.TimeHandler._pause = false;
+        }
     }
 
     canvas: HTMLCanvasElement;
@@ -590,6 +634,7 @@ export namespace CreateJS {
     export type Line = InstanceType<typeof CreateJS.Line>;
     export type Vec2 = InstanceType<typeof CreateJS.Vec2>;
     export type KeyboardEvent = InstanceType<typeof CreateJS.KeyboardEvent>;
+    export type TimeHandler = InstanceType<typeof CreateJS.TimeHandler>;
 
     export namespace KeyboardEvent {
         export type Key = typeof CreateJS.KeyboardEvent.Key;
