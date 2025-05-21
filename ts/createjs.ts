@@ -408,34 +408,61 @@ export class CreateJS {
         protected _fillColor: string = "white";
         protected _strokeColor: string = "white";
         protected _strokeWidth: number = 0;
+        protected _fill: boolean = false;
+        protected _stroke: boolean = false;
 
-        constructor(public x: number, public y: number) {}
+        position: CreateJS.Vec2;
+
+        constructor(x: number, y: number) {
+            this.position = new CreateJS.Vec2(x, y);
+        }
+
+        get x() {
+            return this.position.x;
+        }
+
+        get y() {
+            return this.position.y;
+        }
 
         draw(c: CanvasRenderingContext2D): void {
             throw new Error("Function not implemented");
         }
+    }
 
-        strokeWidth(strokeWidth: number): CreateJS.Shape {
+    static Rect = class extends CreateJS.Shape {
+        size: CreateJS.Vec2;
+
+        constructor(x: number, y: number, w: number, h: number) {
+            super(x, y);
+            this.size = new CreateJS.Vec2(w, h);
+        }
+
+        fill(): CreateJS.Rect {
+            this._fill = !this._fill;
+            return this;
+        }
+
+        stroke(): CreateJS.Rect {
+            this._stroke = !this._stroke;
+            return this;
+        }
+
+        strokeWidth(strokeWidth: number): CreateJS.Rect {
             this._strokeWidth = strokeWidth;
 
             return this;
         }
 
-        strokeColor(strokeColor: string): CreateJS.Shape {
+        strokeColor(strokeColor: string): CreateJS.Rect {
             this._strokeColor = strokeColor;
             return this;
         }
 
-        fillColor(fillColor: string): CreateJS.Shape {
+        fillColor(fillColor: string): CreateJS.Rect {
             this._fillColor = fillColor;
 
             return this;
-        }
-    }
-
-    static Rect = class extends CreateJS.Shape {
-        constructor(x: number, y: number, public w: number, public h: number) {
-            super(x, y);
         }
 
         draw(c: CanvasRenderingContext2D): void {
@@ -444,9 +471,67 @@ export class CreateJS {
             c.fillStyle = this._fillColor;
             c.lineWidth = this._strokeWidth;
             c.rect(this.x, this.y, this.w, this.h);
-            c.stroke();
-            c.fill();
+            if (this._fill) c.fill();
+            if (this._stroke) c.stroke();
             c.closePath();
+        }
+
+        get w() {
+            return this.size.x;
+        }
+
+        get h() {
+            return this.size.y;
+        }
+
+        translate(dx: number, dy: number): CreateJS.Rect {
+            this.position.add(new CreateJS.Vec2(dx, dy));
+            return this;
+        }
+
+        scale(scalar: number): CreateJS.Rect;
+        scale(wFactor: number, hFactor: number): CreateJS.Rect;
+        scale(wFactor: number, hFactor?: number): CreateJS.Rect {
+            if (hFactor === undefined) {
+                this.size.mul(wFactor);
+                return this;
+            } else {
+                this.size.x *= wFactor;
+                this.size.y *= hFactor;
+                return this;
+            }
+        }
+
+        aspectRatio(): number {
+            return this.w / this.h;
+        }
+
+        topLeft(): CreateJS.Vec2 {
+            return this.position.clone();
+        }
+
+        topRight(): CreateJS.Vec2 {
+            return this.position.clone().add(new CreateJS.Vec2(this.size.x, 0));
+        }
+
+        bottomRight(): CreateJS.Vec2 {
+            return this.position.clone().add(this.size);
+        }
+
+        bottomLeft(): CreateJS.Vec2 {
+            return this.position.clone().add(new CreateJS.Vec2(0, this.size.y));
+        }
+
+        center(): CreateJS.Vec2 {
+            return this.position.clone().add(this.size.clone().div(2));
+        }
+
+        // Creation
+
+        static fromCenter(center: CreateJS.Vec2, size: number): CreateJS.Rect {
+            const rectSize = new CreateJS.Vec2(size, size);
+            const pos = center.clone().sub(rectSize.div(2));
+            return new CreateJS.Rect(pos.x, pos.y, size, size);
         }
     }
 
@@ -485,7 +570,7 @@ export class CreateJS {
         return this;
     }
 
-    run(objects?: CreateJS.Shape[] | CreateJS.Line[]): void {
+    run(objects?: (CreateJS.Shape | CreateJS.Line)[]): void {
         this.c.fillStyle = this._backgroundColor;
         this.c.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
