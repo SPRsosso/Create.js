@@ -18,8 +18,10 @@ if (canvas) {
 
     const polygonPoints = rect.toPolygon()
     polygonPoints.splice(3, 0, new CreateJS.Vec2(50, 150));
-    const polygon = new CreateJS.ConvexPolygon(500, 500, ...polygonPoints, new CreateJS.Vec2()).strokeColor("red").stroke();
+    const polygon = new CreateJS.ConvexPolygon(500, 500, ...polygonPoints).strokeColor("red").stroke();
     let point = polygon.center().toPoint().size(3).fillColor("red").fill();
+
+    const triangle = new CreateJS.ConvexPolygon(0, 0, new CreateJS.Vec2(0, 0), new CreateJS.Vec2(4, 0).mul(4), new CreateJS.Vec2(4, 3).mul(4)).strokeColor("white").stroke();
 
     const speed = 10;
 
@@ -38,10 +40,10 @@ if (canvas) {
         velocity.x = -1;
     });
     keyboardHandler.register(CreateJS.KeyboardEvent.Key.ArrowUp, () => {
-        rect.scaleFrom(rect.position.clone().add(rect.size.clone().div(2)), 1.05);
+        polygon.scaleFrom(1.1);
     });
     keyboardHandler.register(CreateJS.KeyboardEvent.Key.ArrowDown, () => {
-        rect.scaleFrom(rect.position.clone().add(rect.size.clone().div(2)), 0.95);
+        polygon.scaleFrom(0.9);
     });
     keyboardHandler.handle(fps);
 
@@ -60,8 +62,11 @@ if (canvas) {
         polygon.translate(velocity.x, velocity.y);
         point = polygon.center().toPoint().size(3).fillColor("red").fill();
         velocity.zero();
-            
-        game.run([ line, rect, rect2, rect3, polygon, point ]);
+
+        const boundingRect = polygon.getBoundingBox().strokeColor("yellow").stroke();
+        const points = polygon.points.map(p => p.clone().add(polygon.position).toPoint().size(5).fillColor("blue").fill())
+
+        game.run([ line, rect, rect2, rect3, polygon, point, boundingRect, triangle, ...points ]);
     });
 }
 

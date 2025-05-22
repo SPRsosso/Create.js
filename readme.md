@@ -10,7 +10,7 @@ To install Create.js, first you choose version:
 
 [TypeScript Here](https://raw.githubusercontent.com/SPRsosso/Create.js/refs/heads/main/ts/createjs.ts)
 
-[JavaScript Here]()
+[JavaScript Here](https://raw.githubusercontent.com/SPRsosso/Create.js/refs/heads/main/js/createjs.js)
 
 Then you need to drop the file in your codebase. After that you need to import it and you are good to go!
 

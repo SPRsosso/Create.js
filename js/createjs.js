@@ -49,14 +49,14 @@ CreateJS.Vec2 = class {
         this.x = x;
         this.y = y;
     }
-    add(vec) {
-        this.x += vec.x;
-        this.y += vec.y;
+    add(vec2) {
+        this.x += vec2.x;
+        this.y += vec2.y;
         return this;
     }
-    sub(vec) {
-        this.x -= vec.x;
-        this.y -= vec.y;
+    sub(vec2) {
+        this.x -= vec2.x;
+        this.y -= vec2.y;
         return this;
     }
     mul(scalar) {
@@ -531,7 +531,7 @@ CreateJS.ConvexPolygon = class extends CreateJS.Shape {
     }
     draw(c) {
         c.beginPath();
-        c.moveTo(this.x, this.y);
+        // c.moveTo(this.x, this.y);
         for (let i = 0; i < this.points.length; i++) {
             const pointPosition = this.position.clone().add(this.points[i]);
             c.lineTo(pointPosition.x, pointPosition.y);
@@ -568,6 +568,48 @@ CreateJS.ConvexPolygon = class extends CreateJS.Shape {
     translate(x, y) {
         this.position.add(new CreateJS.Vec2(x, y));
         return this;
+    }
+    scaleFrom(factor, origin = this.center()) {
+        if (typeof factor === "number") {
+            this.points.forEach(v => {
+                v.add(this.position).sub(origin).mul(factor).add(this.position.vectorTo(origin));
+            });
+        }
+        else if (typeof factor === "object") {
+            this.points.forEach(v => {
+                v.add(this.position).sub(origin).mul(factor).add(this.position.vectorTo(origin));
+            });
+        }
+        return this;
+    }
+    getBoundingBox() {
+        let minX = Infinity, minY = Infinity;
+        let maxX = -Infinity, maxY = -Infinity;
+        for (const v of this.points) {
+            if (v.x < minX)
+                minX = v.x;
+            if (v.y < minY)
+                minY = v.y;
+            if (v.x > maxX)
+                maxX = v.x;
+            if (v.y > maxY)
+                maxY = v.y;
+        }
+        return new CreateJS.Rect(this.position.x + minX, this.position.y + minY, maxX - minX, maxY - minY);
+    }
+    getNormals() {
+        const normals = [];
+        for (let i = 0; i < this.points.length; i++) {
+            const current = this.points[i].clone();
+            const next = this.points[(i + 1) % this.points.length].clone();
+            const edge = next.sub(current);
+            const normal = edge.perpendicular().normalize();
+            normals.push(normal);
+        }
+        return normals;
+    }
+    copy() {
+        return new CreateJS.ConvexPolygon(this.position.x, this.position.y, ...this.points);
     }
 };
 CreateJS.Rect = class extends CreateJS.Shape {
@@ -654,20 +696,19 @@ CreateJS.Rect = class extends CreateJS.Shape {
             return this;
         }
     }
-    scaleFrom(origin, wFactor, hFactor) {
+    scaleFrom(wFactor, hFactor = this.center(), origin = this.center()) {
         const offset = this.position.clone().sub(origin);
-        if (hFactor === undefined) {
-            const scaledOffset = offset.mul(wFactor);
-            this.size.mul(wFactor);
-            this.position = origin.clone().add(scaledOffset);
-            return this;
-        }
-        else {
+        if (typeof hFactor === "number") {
             const scaledOffset = offset.mul(new CreateJS.Vec2(wFactor, hFactor));
             this.size.mul(new CreateJS.Vec2(wFactor, hFactor));
             this.position = origin.clone().add(scaledOffset);
-            return this;
         }
+        else if (typeof hFactor === "object") {
+            const scaledOffset = offset.mul(wFactor);
+            this.size.mul(wFactor);
+            this.position = hFactor.clone().add(scaledOffset);
+        }
+        return this;
     }
     containsPoint(point) {
         return (point.x >= this.position.x &&

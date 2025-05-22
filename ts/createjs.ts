@@ -571,7 +571,7 @@ export class CreateJS {
 
         draw(c: CanvasRenderingContext2D) {
             c.beginPath();
-            c.moveTo(this.x, this.y);
+            // c.moveTo(this.x, this.y);
             for (let i = 0; i < this.points.length; i++) {
                 const pointPosition = this.position.clone().add(this.points[i]);
                 c.lineTo(pointPosition.x, pointPosition.y);
@@ -613,6 +613,55 @@ export class CreateJS {
         translate(x: number, y: number): CreateJS.ConvexPolygon {
             this.position.add(new CreateJS.Vec2(x, y));
             return this;
+        }
+
+        scaleFrom(factor: number, origin?: CreateJS.Vec2): CreateJS.ConvexPolygon;
+        scaleFrom(sizeVec: CreateJS.Vec2, origin?: CreateJS.Vec2): CreateJS.ConvexPolygon;
+        scaleFrom(factor: number | CreateJS.Vec2, origin: CreateJS.Vec2 = this.center()): CreateJS.ConvexPolygon {
+            if (typeof factor === "number") {
+                this.points.forEach(v => {
+                    v.add(this.position).sub(origin).mul(factor as number).add(this.position.vectorTo(origin));
+                });
+            } else if (typeof factor === "object") {
+                this.points.forEach(v => {
+                    v.add(this.position).sub(origin).mul(factor as CreateJS.Vec2).add(this.position.vectorTo(origin));
+                });
+            }
+
+            return this;
+        }
+
+        getBoundingBox(): CreateJS.Rect {
+            let minX = Infinity, minY = Infinity;
+            let maxX = -Infinity, maxY = -Infinity;
+
+            for (const v of this.points) {
+                if (v.x < minX) minX = v.x;
+                if (v.y < minY) minY = v.y;
+                if (v.x > maxX) maxX = v.x;
+                if (v.y > maxY) maxY = v.y;
+            }
+
+            return new CreateJS.Rect(this.position.x + minX, this.position.y + minY, maxX - minX, maxY - minY);
+        }
+
+        getNormals(): CreateJS.Vec2[] {
+            const normals: CreateJS.Vec2[] = [];
+
+            for (let i = 0; i < this.points.length; i++) {
+                const current = this.points[i].clone();
+                const next = this.points[(i + 1) % this.points.length].clone();
+                const edge = next.sub(current);
+
+                const normal = edge.perpendicular().normalize();
+                normals.push(normal);
+            }
+
+            return normals;
+        }
+
+        copy(): CreateJS.ConvexPolygon {
+            return new CreateJS.ConvexPolygon(this.position.x, this.position.y, ...this.points);
         }
     }
 
@@ -713,24 +762,22 @@ export class CreateJS {
             }
         }
 
-        scaleFrom(origin: CreateJS.Vec2, scalar: number): CreateJS.Rect;
-        scaleFrom(origin: CreateJS.Vec2, wFactor: number, hFactor: number): CreateJS.Rect;
-        scaleFrom(origin: CreateJS.Vec2, wFactor: number, hFactor?: number): CreateJS.Rect {
+        scaleFrom(scalar: number, origin?: CreateJS.Vec2): CreateJS.Rect;
+        scaleFrom(wFactor: number, hFactor: number, origin?: CreateJS.Vec2): CreateJS.Rect;
+        scaleFrom(wFactor: number, hFactor: number | CreateJS.Vec2 = this.center(), origin: CreateJS.Vec2 = this.center()): CreateJS.Rect {
             const offset = this.position.clone().sub(origin);
             
-            if (hFactor === undefined) {
-                const scaledOffset = offset.mul(wFactor);
-                this.size.mul(wFactor);
-                this.position = origin.clone().add(scaledOffset);
-
-                return this;
-            } else {
+            if (typeof hFactor === "number") {
                 const scaledOffset = offset.mul(new CreateJS.Vec2(wFactor, hFactor));
                 this.size.mul(new CreateJS.Vec2(wFactor, hFactor));
-
                 this.position = origin.clone().add(scaledOffset);
-                return this;
+            } else if (typeof hFactor === "object") {
+                const scaledOffset = offset.mul(wFactor);
+                this.size.mul(wFactor);
+                this.position = hFactor.clone().add(scaledOffset);
             }
+
+            return this;
         }
 
         containsPoint(point: CreateJS.Vec2): boolean {
