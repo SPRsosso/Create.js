@@ -1,0 +1,81 @@
+A `Rect` (Rectangle) class typically represents a rectangle in 2D space, often defined by its **origin (x, y)** and **size (width, height)**. It can include a wide variety of **functional methods** that help with geometry, collision detection, layout, and rendering.
+
+Here’s a comprehensive list of **useful functional methods** a `Rect` class might have:
+
+---
+
+## 🧩 Geometry & Positioning
+
+### 📍 **Corners & Edges**
+
+* `topLeft()` → Returns the top-left corner as a `Vec2`
+* `topRight()` → Returns the top-right corner
+* `bottomLeft()` → Returns the bottom-left corner
+* `bottomRight()` → Returns the bottom-right corner
+* `center()` → Returns the center point of the rect
+* `corners()` → Returns all 4 corners in an array
+
+---
+
+### 📐 **Properties**
+
+* `width()` / `height()` → Get dimensions
+* `area()` → `width * height`
+* `aspectRatio()` → `width / height`
+
+---
+
+## 🚦 Collision & Containment
+
+### 🔳 **Containment**
+
+* `containsPoint(vec2)` → Checks if a point is inside the rect
+* `containsRect(other)` → Checks if this rect fully contains another
+
+### 🔁 **Intersection**
+
+* `intersects(otherRect)` → Boolean: do they overlap?
+* `intersection(otherRect)` → Returns the overlapping rectangle
+* `union(otherRect)` → Returns a rect that covers both
+
+---
+
+## 🔧 Transformations
+
+* `translate(dx, dy)` → Move the rect by a delta
+* `scale(scalar)` or `scale(wFactor, hFactor)` → Resize around origin
+* `inflate(dx, dy)` → Expand or contract size (can be negative)
+* `clampTo(boundsRect)` → Restrict the rect to stay within a larger one
+
+---
+
+## 🧮 Alignment & Anchoring
+
+* `alignTo(otherRect, alignment)` → Align this rect to another (e.g. center, topLeft)
+* `anchorAt(vec2, anchor)` → Position this rect based on an anchor point (e.g. "center", "bottomRight")
+
+---
+
+## 🖼️ Conversion / Utility
+
+* `toString()` → Returns a string representation
+* `toBounds()` → Return `{ x, y, width, height }`
+* `toPolygon()` → Convert to polygon (array of 4 corner points)
+
+---
+
+## 🧪 Debug / Comparison
+
+* `equals(otherRect)` → Check if two rects are exactly equal
+* `isEmpty()` → True if width or height is 0
+
+---
+
+### 📦 Optional: Static Constructors
+
+* `Rect.fromCenter(center, size)` → Create a rect from center + size
+* `Rect.fromPoints(p1, p2)` → Create a bounding rect from 2 corners
+
+---
+
+Would you like a minimal `Rect` class with these implemented in a specific language like Python, JavaScript, or C# (Unity-style)?

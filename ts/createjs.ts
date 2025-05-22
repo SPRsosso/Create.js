@@ -14,9 +14,16 @@ export class CreateJS {
             return this;
         }
 
-        mul(scalar: number): CreateJS.Vec2 {
-            this.x *= scalar;
-            this.y *= scalar;
+        mul(scalar: number): CreateJS.Vec2;
+        mul(vec2: CreateJS.Vec2): CreateJS.Vec2;
+        mul(scalar: number | CreateJS.Vec2): CreateJS.Vec2 {
+            if (typeof scalar === "object") {
+                this.x *= scalar.x;
+                this.y *= scalar.y;
+            } else if (typeof scalar === "number") {
+                this.x *= scalar;
+                this.y *= scalar;
+            }
             return this;
         }
         
@@ -163,9 +170,20 @@ export class CreateJS {
             return Math.sqrt((vec2.x - this.x) ** 2 + (vec2.y - this.y) ** 2);
         }
 
-        set(x: number, y: number): CreateJS.Vec2 {
-            this.x = x;
-            this.y = y;
+        vectorTo(vec2: CreateJS.Vec2): CreateJS.Vec2 {
+            return vec2.clone().sub(this);
+        }
+
+        set(x: number, y: number): CreateJS.Vec2;
+        set(vec2: CreateJS.Vec2): CreateJS.Vec2;
+        set(x: number | CreateJS.Vec2, y?: number): CreateJS.Vec2 {
+            if (typeof x === 'object' && x !== null && 'x' in x && 'y' in x) {
+                this.x = x.x;
+                this.y = x.y;
+            } else if (typeof x === 'number' && typeof y === 'number') {
+                this.x = x;
+                this.y = y;
+            }
             return this;
         }
 
@@ -336,42 +354,54 @@ export class CreateJS {
             ContextMenu: "ContextMenu",
         };
 
+        static Handler = class {
+            private heldKeys: Set<string> = new Set();
+            private callbacks: Map<string, () => void> = new Map();
+            private _unhandle: boolean = false;
 
-        static registeredKeys: { [key: string]: (event: KeyboardEvent, isKeyUp: boolean) => void } = {};
-        static deployed: boolean = false;
+            constructor() {
+                addEventListener("keydown", ( event ) => {
+                    this.heldKeys.add(event.code);
+                });
 
-        static register(key: Key, callback: (event: KeyboardEvent, isKeyUp: boolean) => void) {
-            CreateJS.KeyboardEvent.registeredKeys[key] = callback;
-        }
-
-        static unregister(key: Key) {
-            delete CreateJS.KeyboardEvent.registeredKeys[key];
-        }
-
-        static deploy() {
-            if (this.deployed) {
-                throw new Error("Trying to deploy KeyboardEvent again!");
+                addEventListener("keyup", ( event ) => {
+                    this.heldKeys.delete(event.code);
+                });
             }
 
-            this.deployed = true;
-            addEventListener("keydown", ( event: KeyboardEvent ) => {
-                Object.keys(CreateJS.KeyboardEvent.registeredKeys).forEach(key => {
-                    if (event.code === key) {
-                        const callback = CreateJS.KeyboardEvent.registeredKeys[key];
-                        callback(event, false);
+            async handle(fps: number): Promise<void> {
+                while (true) {
+                    if (this._unhandle) {
+                        this._unhandle = false;
+                        return;
                     }
-                });
-            });
 
-            addEventListener("keyup", ( event: KeyboardEvent ) => {
-                Object.keys(CreateJS.KeyboardEvent.registeredKeys).forEach(key => {
-                    if (event.code === key) {
-                        const callback = CreateJS.KeyboardEvent.registeredKeys[key];
-                        callback(event, true);
+                    for (let key of this.heldKeys) {
+                        if (this.callbacks.has(key)) {
+                            this.callbacks.get(key)!();
+                        }
                     }
-                });
-            });
+
+                    await CreateJS.TimeHandler.wait(fps);
+                }
+            }
+
+            unhandle(): void {
+                this._unhandle = true;
+            }
+
+            register(key: Key, callback: () => void) {
+                this.callbacks.set(key, callback);
+            }
+
+            unregister(key: Key) {
+                this.callbacks.delete(key);
+            }
         }
+    }
+
+    static Physics = class {
+
     }
 
     static Line = class {
@@ -405,6 +435,13 @@ export class CreateJS {
     }
 
     static Shape = class {
+        static Anchors = {
+            TopLeft: "TopLeft",
+            TopRight: "TopRight",
+            BottomRight: "BottomRight",
+            BottomLeft: "BottomLeft"
+        }
+
         protected _fillColor: string = "white";
         protected _strokeColor: string = "white";
         protected _strokeWidth: number = 0;
@@ -415,6 +452,33 @@ export class CreateJS {
 
         constructor(x: number, y: number) {
             this.position = new CreateJS.Vec2(x, y);
+        }
+
+        fill(): typeof this {
+            this._fill = !this._fill;
+            return this;
+        }
+
+        stroke(): typeof this {
+            this._stroke = !this._stroke;
+            return this;
+        }
+
+        strokeWidth(strokeWidth: number): typeof this {
+            this._strokeWidth = strokeWidth;
+
+            return this;
+        }
+
+        strokeColor(strokeColor: string): typeof this {
+            this._strokeColor = strokeColor;
+            return this;
+        }
+
+        fillColor(fillColor: string): typeof this {
+            this._fillColor = fillColor;
+
+            return this;
         }
 
         get x() {
@@ -430,39 +494,35 @@ export class CreateJS {
         }
     }
 
+    static ConvexPolygon = class extends CreateJS.Shape {
+        points: CreateJS.Vec2[] = [];
+        
+        constructor(x: number, y: number, ...args: CreateJS.Vec2[]) {
+            super(x, y);
+            this.points = args;
+        }
+
+        draw(c: CanvasRenderingContext2D) {
+            c.beginPath();
+            c.moveTo(this.x, this.y);
+            for (let i = 0; i < this.points.length; i++) {
+                const pointPosition = this.position.clone().add(this.points[i]);
+                c.lineTo(pointPosition.x, pointPosition.y);
+            }
+            c.closePath();
+            c.fillStyle = this._fillColor;
+            c.strokeStyle = this._strokeColor;
+            if (this._fill) c.fill();
+            if (this._stroke) c.stroke();
+        }
+    }
+
     static Rect = class extends CreateJS.Shape {
         size: CreateJS.Vec2;
 
         constructor(x: number, y: number, w: number, h: number) {
             super(x, y);
             this.size = new CreateJS.Vec2(w, h);
-        }
-
-        fill(): CreateJS.Rect {
-            this._fill = !this._fill;
-            return this;
-        }
-
-        stroke(): CreateJS.Rect {
-            this._stroke = !this._stroke;
-            return this;
-        }
-
-        strokeWidth(strokeWidth: number): CreateJS.Rect {
-            this._strokeWidth = strokeWidth;
-
-            return this;
-        }
-
-        strokeColor(strokeColor: string): CreateJS.Rect {
-            this._strokeColor = strokeColor;
-            return this;
-        }
-
-        fillColor(fillColor: string): CreateJS.Rect {
-            this._fillColor = fillColor;
-
-            return this;
         }
 
         draw(c: CanvasRenderingContext2D): void {
@@ -484,6 +544,58 @@ export class CreateJS {
             return this.size.y;
         }
 
+        alignTo(thisAnchor: Anchor, rect: CreateJS.Rect, toAnchor: Anchor): CreateJS.Rect {
+            let point = new CreateJS.Vec2();
+            switch(thisAnchor) {
+                case CreateJS.Shape.Anchors.TopRight:
+                    point.set(this.size.x, 0);
+                    break;
+                case CreateJS.Shape.Anchors.BottomRight:
+                    point.set(this.size);
+                    break;
+                case CreateJS.Shape.Anchors.BottomLeft:
+                    point.set(0, this.size.y);
+                    break;
+            }
+
+            let position = new CreateJS.Vec2();
+            switch(toAnchor) {
+                case CreateJS.Shape.Anchors.TopLeft:
+                    position.set(rect.topLeft());
+                    break;
+                case CreateJS.Shape.Anchors.TopRight:
+                    position.set(rect.topRight());
+                    break;
+                case CreateJS.Shape.Anchors.BottomRight:
+                    position.set(rect.bottomRight());
+                    break;
+                case CreateJS.Shape.Anchors.BottomLeft:
+                    position.set(rect.bottomLeft());
+                    break;
+            }
+
+            this.position.set(position).sub(point);
+            
+            return this;
+        }
+
+        anchorAt(vec2: CreateJS.Vec2, anchor: Anchor): CreateJS.Rect {
+            this.position.set(vec2);
+            switch(anchor) {
+                case CreateJS.Shape.Anchors.TopRight:
+                    this.position.sub(new CreateJS.Vec2(this.size.x, 0));
+                    break;
+                case CreateJS.Shape.Anchors.BottomRight:
+                    this.position.sub(this.size);
+                    break;
+                case CreateJS.Shape.Anchors.BottomLeft:
+                    this.position.sub(new CreateJS.Vec2(0, this.size.y));
+                    break;
+            }
+
+            return this;
+        }
+
         translate(dx: number, dy: number): CreateJS.Rect {
             this.position.add(new CreateJS.Vec2(dx, dy));
             return this;
@@ -502,8 +614,50 @@ export class CreateJS {
             }
         }
 
+        scaleFrom(origin: CreateJS.Vec2, scalar: number): CreateJS.Rect;
+        scaleFrom(origin: CreateJS.Vec2, wFactor: number, hFactor: number): CreateJS.Rect;
+        scaleFrom(origin: CreateJS.Vec2, wFactor: number, hFactor?: number): CreateJS.Rect {
+            const offset = this.position.clone().sub(origin);
+            
+            if (hFactor === undefined) {
+                const scaledOffset = offset.mul(wFactor);
+                this.size.mul(wFactor);
+                this.position = origin.clone().add(scaledOffset);
+
+                return this;
+            } else {
+                const scaledOffset = offset.mul(new CreateJS.Vec2(wFactor, hFactor));
+                this.size.mul(new CreateJS.Vec2(wFactor, hFactor));
+
+                this.position = origin.clone().add(scaledOffset);
+                return this;
+            }
+        }
+
+        containsPoint(point: CreateJS.Vec2): boolean {
+            return (
+                point.x >= this.position.x &&
+                point.x <= this.position.x + this.size.x &&
+                point.y >= this.position.y &&
+                point.y <= this.position.y + this.size.y
+            );
+        }
+
+        contains(rect: CreateJS.Rect): boolean {
+            return (
+                this.containsPoint(rect.topLeft()) &&
+                this.containsPoint(rect.topRight()) &&
+                this.containsPoint(rect.bottomRight()) &&
+                this.containsPoint(rect.bottomLeft())
+            );
+        }
+
         aspectRatio(): number {
             return this.w / this.h;
+        }
+
+        area(): number {
+            return this.w * this.h;
         }
 
         topLeft(): CreateJS.Vec2 {
@@ -526,12 +680,34 @@ export class CreateJS {
             return this.position.clone().add(this.size.clone().div(2));
         }
 
-        // Creation
+        toBounds(): { x: number, y: number, w: number, h: number } {
+            return {
+                x: this.x,
+                y: this.y,
+                w: this.w,
+                h: this.h
+            };
+        }
+
+        toPolygon(): CreateJS.Vec2[] {
+            return [
+                this.topLeft().clone().sub(this.position),
+                this.topRight().clone().sub(this.position),
+                this.bottomRight().clone().sub(this.position),
+                this.bottomLeft().clone().sub(this.position)
+            ]
+        }
 
         static fromCenter(center: CreateJS.Vec2, size: number): CreateJS.Rect {
             const rectSize = new CreateJS.Vec2(size, size);
             const pos = center.clone().sub(rectSize.div(2));
             return new CreateJS.Rect(pos.x, pos.y, size, size);
+        }
+
+        static fromPoints(point1: CreateJS.Vec2, point2: CreateJS.Vec2): CreateJS.Rect {
+            const size = point1.vectorTo(point2);
+
+            return new CreateJS.Rect(point1.x, point1.y, size.x, size.y);
         }
     }
 
@@ -548,7 +724,7 @@ export class CreateJS {
             });
         }
 
-        static async tick(fps: number, callback: ( currentTick: number, dt: number ) => void): Promise<void> {
+        static async tick(fps: number, callback: ( currentTick: number, dt: number ) => number | void): Promise<void> {
             let tick = 0;
             CreateJS.TimeHandler.timeBefore = performance.now();
             while(true) {
@@ -558,13 +734,18 @@ export class CreateJS {
                 }
 
                 if (CreateJS.TimeHandler._pause) {
+                    await CreateJS.TimeHandler.wait(fps);
                     continue;
                 }
 
                 const dt = (performance.now() - CreateJS.TimeHandler.timeBefore) / fps;
                 CreateJS.TimeHandler.timeBefore = performance.now();
 
-                callback(++tick, dt);
+                const callbackReturn = callback(++tick, dt);
+                if (callbackReturn !== undefined) {
+                    tick = callbackReturn;
+                }
+
                 await CreateJS.TimeHandler.wait(fps);
             }
         }
@@ -614,7 +795,7 @@ export class CreateJS {
         return this;
     }
 
-    run(objects?: (CreateJS.Shape | CreateJS.Line)[]): void {
+    run(objects?: (CreateJS.Shape | CreateJS.Line | CreateJS.ConvexPolygon)[]): void {
         this.c.fillStyle = this._backgroundColor;
         this.c.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -628,16 +809,23 @@ export class CreateJS {
 
 
 export type Key = string;
+export type Anchor = string;
 export namespace CreateJS {
     export type Shape = InstanceType<typeof CreateJS.Shape>;
     export type Rect = InstanceType<typeof CreateJS.Rect>;
     export type Line = InstanceType<typeof CreateJS.Line>;
+    export type ConvexPolygon = InstanceType<typeof CreateJS.ConvexPolygon>;
     export type Vec2 = InstanceType<typeof CreateJS.Vec2>;
     export type KeyboardEvent = InstanceType<typeof CreateJS.KeyboardEvent>;
     export type TimeHandler = InstanceType<typeof CreateJS.TimeHandler>;
 
     export namespace KeyboardEvent {
         export type Key = typeof CreateJS.KeyboardEvent.Key;
+        export type Handler = InstanceType<typeof CreateJS.KeyboardEvent.Handler>;
+    }
+
+    export namespace Shape {
+        export type Anchors = typeof CreateJS.Shape.Anchors;
     }
 }
 
