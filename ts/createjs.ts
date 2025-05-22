@@ -2,15 +2,15 @@ export class CreateJS {
     static Vec2 = class {
         constructor(public x: number = 0, public y: number = 0) {}
 
-        add(vec: CreateJS.Vec2): CreateJS.Vec2 {
-            this.x += vec.x;
-            this.y += vec.y;
+        add(vec2: CreateJS.Vec2): CreateJS.Vec2 {
+            this.x += vec2.x;
+            this.y += vec2.y;
             return this;
         }
 
-        sub(vec: CreateJS.Vec2): CreateJS.Vec2 {
-            this.x -= vec.x;
-            this.y -= vec.y;
+        sub(vec2: CreateJS.Vec2): CreateJS.Vec2 {
+            this.x -= vec2.x;
+            this.y -= vec2.y;
             return this;
         }
 
@@ -27,9 +27,16 @@ export class CreateJS {
             return this;
         }
         
-        div(scalar: number): CreateJS.Vec2 {
-            this.x /= scalar;
-            this.y /= scalar;
+        div(scalar: number): CreateJS.Vec2;
+        div(vec2: CreateJS.Vec2): CreateJS.Vec2;
+        div(scalar: number | CreateJS.Vec2): CreateJS.Vec2 {
+            if (typeof scalar === "object") {
+                this.x /= scalar.x;
+                this.y /= scalar.y;
+            } else if (typeof scalar === "number") {
+                this.x /= scalar;
+                this.y /= scalar;
+            }
             return this;
         }
 
@@ -224,6 +231,10 @@ export class CreateJS {
             return new CreateJS.Line(startX, startY, startX + this.x, startY + this.y);
         }
 
+        toPoint(): CreateJS.Point {
+            return new CreateJS.Point(this.x, this.y);
+        }
+
         static fromArray(arr: number[]): CreateJS.Vec2 {
             return new CreateJS.Vec2(arr[0], arr[1]);
         }
@@ -404,9 +415,60 @@ export class CreateJS {
 
     }
 
+    static Point = class {
+        position: CreateJS.Vec2;
+        private _fillColor: string = "white";
+        private _strokeColor: string = "white";
+        private _size: number = 1;
+        private _fill: boolean = false;
+        private _stroke: boolean = false;
+
+        constructor(x: number, y: number) {
+            this.position = new CreateJS.Vec2(x, y);
+        }
+
+        size(size: number): CreateJS.Point {
+            this._size = size;
+            return this;
+        }
+
+        strokeColor(color: string): CreateJS.Point {
+            this._strokeColor = color;
+            return this;
+        }
+
+        fillColor(color: string): CreateJS.Point {
+            this._fillColor = color;
+            return this;
+        }
+
+        stroke(): CreateJS.Point {
+            this._stroke = this._stroke;
+            return this;
+        }
+
+        fill(): CreateJS.Point {
+            this._fill = !this._fill;
+            return this;
+        }
+
+        toVec2(): CreateJS.Vec2 {
+            return new CreateJS.Vec2(this.position.x, this.position.y);
+        }
+
+        draw(c: CanvasRenderingContext2D): void {
+            c.beginPath();
+            c.fillStyle = this._fillColor;
+            c.strokeStyle = this._strokeColor;
+            c.arc(this.position.x, this.position.y, this._size, 0, 2 * Math.PI);
+            if (this._fill) c.fill();
+        }
+    }
+
     static Line = class {
         private _width: number = 1;
         private _color: string = "white";
+        private _stroke: boolean = false;
         constructor(public x1: number, public y1: number, public x2: number, public y2: number) {}
 
         width(width: number): CreateJS.Line {
@@ -419,13 +481,18 @@ export class CreateJS {
             return this;
         }
 
+        stroke(): CreateJS.Line {
+            this._stroke = !this._stroke;
+            return this;
+        }
+
         draw(c: CanvasRenderingContext2D): void {
             c.beginPath();
             c.lineWidth = this._width;
             c.strokeStyle = this._color;
             c.moveTo(this.x1, this.y1);
             c.lineTo(this.x2, this.y2);
-            c.stroke();
+            if (this._stroke) c.stroke();
             c.closePath();
         }
 
@@ -514,6 +581,38 @@ export class CreateJS {
             c.strokeStyle = this._strokeColor;
             if (this._fill) c.fill();
             if (this._stroke) c.stroke();
+        }
+
+        center(): CreateJS.Vec2 {
+            let area = 0;
+            let cx = 0;
+            let cy = 0;
+
+            const n = this.points.length;
+            for (let i = 0; i < n; i++) {
+                const curr = this.points[i].clone().add(this.position);
+                const next = this.points[(i + 1) % n].clone().add(this.position);
+                const cross = curr.cross(next);
+
+                area += cross;
+                cx += (curr.x + next.x) * cross;
+                cy += (curr.y + next.y) * cross;
+            }
+
+            area *= 0.5;
+            if (area === 0) {
+                throw new Error("Polygon has zero area (possibly degenerate)");
+            }
+
+            cx /= 6 * area;
+            cy /= 6 * area;
+            
+            return new CreateJS.Vec2(cx, cy);
+        }
+
+        translate(x: number, y: number): CreateJS.ConvexPolygon {
+            this.position.add(new CreateJS.Vec2(x, y));
+            return this;
         }
     }
 
@@ -795,14 +894,14 @@ export class CreateJS {
         return this;
     }
 
-    run(objects?: (CreateJS.Shape | CreateJS.Line | CreateJS.ConvexPolygon)[]): void {
+    run(objects?: CreateJS.Drawable[]): void {
         this.c.fillStyle = this._backgroundColor;
         this.c.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
         if (objects) {
             objects.forEach(object => {
                 object.draw(this.c);
-            })
+            });
         }
     }
 }
@@ -813,11 +912,15 @@ export type Anchor = string;
 export namespace CreateJS {
     export type Shape = InstanceType<typeof CreateJS.Shape>;
     export type Rect = InstanceType<typeof CreateJS.Rect>;
+    export type Point = InstanceType<typeof CreateJS.Point>;
     export type Line = InstanceType<typeof CreateJS.Line>;
     export type ConvexPolygon = InstanceType<typeof CreateJS.ConvexPolygon>;
     export type Vec2 = InstanceType<typeof CreateJS.Vec2>;
     export type KeyboardEvent = InstanceType<typeof CreateJS.KeyboardEvent>;
     export type TimeHandler = InstanceType<typeof CreateJS.TimeHandler>;
+    export type Drawable = {
+        draw: (c: CanvasRenderingContext2D) => void;
+    }
 
     export namespace KeyboardEvent {
         export type Key = typeof CreateJS.KeyboardEvent.Key;
