@@ -1,81 +1,53 @@
-A `Rect` (Rectangle) class typically represents a rectangle in 2D space, often defined by its **origin (x, y)** and **size (width, height)**. It can include a wide variety of **functional methods** that help with geometry, collision detection, layout, and rendering.
-
-Here’s a comprehensive list of **useful functional methods** a `Rect` class might have:
+A `ConvexPolygon` class can have a wide range of methods — from basic geometry to collision detection and transformations. Here’s a categorized list of **recommended methods** for a flexible and powerful `ConvexPolygon` class:
 
 ---
 
-## 🧩 Geometry & Positioning
+## 🟣 **Core Structure**
 
-### 📍 **Corners & Edges**
-
-* `topLeft()` → Returns the top-left corner as a `Vec2`
-* `topRight()` → Returns the top-right corner
-* `bottomLeft()` → Returns the bottom-left corner
-* `bottomRight()` → Returns the bottom-right corner
-* `center()` → Returns the center point of the rect
-* `corners()` → Returns all 4 corners in an array
-
----
-
-### 📐 **Properties**
-
-* `width()` / `height()` → Get dimensions
-* `area()` → `width * height`
-* `aspectRatio()` → `width / height`
+```js
+class ConvexPolygon {
+  constructor(vertices = []) {
+    this.vertices = vertices; // Array of Vec2 (must form a convex shape)
+  }
+}
+```
 
 ---
 
-## 🚦 Collision & Containment
+## 🔧 **Core Methods**
 
-### 🔳 **Containment**
-
-* `containsPoint(vec2)` → Checks if a point is inside the rect
-* `containsRect(other)` → Checks if this rect fully contains another
-
-### 🔁 **Intersection**
-
-* `intersects(otherRect)` → Boolean: do they overlap?
-* `intersection(otherRect)` → Returns the overlapping rectangle
-* `union(otherRect)` → Returns a rect that covers both
-
----
-
-## 🔧 Transformations
-
-* `translate(dx, dy)` → Move the rect by a delta
-* `scale(scalar)` or `scale(wFactor, hFactor)` → Resize around origin
-* `inflate(dx, dy)` → Expand or contract size (can be negative)
-* `clampTo(boundsRect)` → Restrict the rect to stay within a larger one
+| Method                  | Description                                              |
+| ----------------------- | -------------------------------------------------------- |
+| `getVertices()`         | Returns the current array of vertices                    |
+| `getEdges()`            | Returns edge vectors (v\[i+1] - v\[i])                   |
+| `getNormals()`          | Returns the perpendicular (normal) vectors for all edges |
+| `getCenter()`           | Returns the centroid or average of all vertices          |
+| `area()`                | Computes polygon area                                    |
+| `containsPoint(point)`  | Tests if a point is inside the polygon                   |
+| `translate(offsetVec)`  | Moves all vertices by a vector                           |
+| `rotate(angle, origin)` | Rotates the polygon around an origin                     |
+| `scale(factor, origin)` | Scales polygon from an origin (optional Vec2)            |
+| `clone()`               | Returns a deep copy of the polygon                       |
 
 ---
 
-## 🧮 Alignment & Anchoring
+## 🎯 **Collision & Geometry Utilities**
 
-* `alignTo(otherRect, alignment)` → Align this rect to another (e.g. center, topLeft)
-* `anchorAt(vec2, anchor)` → Position this rect based on an anchor point (e.g. "center", "bottomRight")
-
----
-
-## 🖼️ Conversion / Utility
-
-* `toString()` → Returns a string representation
-* `toBounds()` → Return `{ x, y, width, height }`
-* `toPolygon()` → Convert to polygon (array of 4 corner points)
+| Method                             | Description                                            |
+| ---------------------------------- | ------------------------------------------------------ |
+| `project(axis)`                    | Projects the polygon onto an axis (for SAT)            |
+| `intersectsPolygon(other)`         | Uses SAT to test collision with another convex polygon |
+| `getClosestVertexTo(point)`        | Returns the vertex closest to a given point            |
+| `getFarthestPointInDirection(dir)` | Useful for GJK support point                           |
+| `getBoundingBox()`                 | Returns a `Rect` that bounds the polygon               |
 
 ---
 
-## 🧪 Debug / Comparison
+## 📐 **Advanced Geometry / Physics**
 
-* `equals(otherRect)` → Check if two rects are exactly equal
-* `isEmpty()` → True if width or height is 0
-
----
-
-### 📦 Optional: Static Constructors
-
-* `Rect.fromCenter(center, size)` → Create a rect from center + size
-* `Rect.fromPoints(p1, p2)` → Create a bounding rect from 2 corners
-
----
-
-Would you like a minimal `Rect` class with these implemented in a specific language like Python, JavaScript, or C# (Unity-style)?
+| Method                     | Description                                                               |
+| -------------------------- | ------------------------------------------------------------------------- |
+| `getMomentOfInertia(mass)` | Useful in physics engines                                                 |
+| `isConvex()`               | Validates convexity of the shape                                          |
+| `convexHull()`             | (Optional) Creates convex hull from unordered points                      |
+| `simplify(tolerance)`      | Reduces vertex count without changing shape much (useful in optimization) |

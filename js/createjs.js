@@ -527,6 +527,8 @@ CreateJS.ConvexPolygon = class extends CreateJS.Shape {
     constructor(x, y, ...args) {
         super(x, y);
         this.points = [];
+        this._minScale = -Infinity;
+        this._maxScale = Infinity;
         this.points = args;
     }
     draw(c) {
@@ -574,13 +576,28 @@ CreateJS.ConvexPolygon = class extends CreateJS.Shape {
             this.points.forEach(v => {
                 v.add(this.position).sub(origin).mul(factor).add(this.position.vectorTo(origin));
             });
+            if (this.area() * factor < this._minScale) {
+                this.scaleTo(this._minScale);
+            }
+            if (this.area() * factor > this._maxScale) {
+                this.scaleTo(this._maxScale);
+            }
         }
         else if (typeof factor === "object") {
             this.points.forEach(v => {
                 v.add(this.position).sub(origin).mul(factor).add(this.position.vectorTo(origin));
             });
+            if ((this.area() * factor.x < this._minScale || this.area() * factor.y < this._minScale)) {
+                this.scaleTo(this._minScale);
+            }
+            if ((this.area() * factor.x > this._maxScale || this.area() * factor.y > this._maxScale)) {
+                this.scaleTo(this._maxScale);
+            }
         }
         return this;
+    }
+    getVerticesPositions() {
+        return this.points.map(p => p.clone().add(this.position));
     }
     getBoundingBox() {
         let minX = Infinity, minY = Infinity;
@@ -608,8 +625,123 @@ CreateJS.ConvexPolygon = class extends CreateJS.Shape {
         }
         return normals;
     }
+    area() {
+        let total = 0;
+        const n = this.points.length;
+        for (let i = 0; i < n; i++) {
+            const current = this.points[i];
+            const next = this.points[(i + 1) % n];
+            total += current.x * next.y - next.x * current.y;
+        }
+        return Math.abs(total) / 2;
+    }
+    rotate(angle, origin = this.center()) {
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        this.points = this.points.map(p => {
+            const point = this.position.clone().add(p);
+            const dx = point.x - origin.x;
+            const dy = point.y - origin.y;
+            const rotated = new CreateJS.Vec2(origin.x + dx * cos - dy * sin, origin.y + dx * sin + dy * cos);
+            return rotated.sub(this.position);
+        });
+        return this;
+    }
+    getClosestVertexTo(point) {
+        const points = this.getVerticesPositions();
+        let minDist = Infinity;
+        let minPoint = points[0];
+        for (let p of points) {
+            if (p.distanceTo(point) < minDist) {
+                minDist = p.distanceTo(point);
+                minPoint = p;
+            }
+            ;
+        }
+        return minPoint;
+    }
+    getFarthestPointInDirection(dir) {
+        let farthest = this.getVerticesPositions()[0];
+        let maxDot = -Infinity;
+        for (let v of this.getVerticesPositions()) {
+            const dot = v.dot(dir);
+            if (dot > maxDot) {
+                maxDot = dot;
+                farthest = v;
+            }
+        }
+        return farthest;
+    }
+    isConvex() {
+        const verts = this.getVerticesPositions();
+        let sign = null;
+        for (let i = 0; i < verts.length; i++) {
+            const a = verts[i].clone();
+            const b = verts[(i + 1) % verts.length].clone();
+            const c = verts[(i + 2) % verts.length].clone();
+            const ab = b.clone().sub(a);
+            const bc = c.clone().sub(b);
+            const cross = ab.cross(bc);
+            if (cross !== 0) {
+                if (sign === null) {
+                    sign = Math.sign(cross);
+                }
+                else if (Math.sign(cross) !== sign) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+    project(axis) {
+        let min = Infinity;
+        let max = -Infinity;
+        for (let v of this.getVerticesPositions()) {
+            const projection = v.dot(axis);
+            if (projection < min)
+                min = projection;
+            if (projection > max)
+                max = projection;
+        }
+        return { min, max };
+    }
     copy() {
         return new CreateJS.ConvexPolygon(this.position.x, this.position.y, ...this.points);
+    }
+    scaleTo(area) {
+        const currentArea = this.area(); // Your polygon's current area
+        const factor = Math.sqrt(area / (currentArea === 0 ? 1 : currentArea));
+        this.scaleFrom(factor);
+        return this;
+    }
+    minScale(area) {
+        this._minScale = area;
+        return this;
+    }
+    maxScale(area) {
+        this._maxScale = area;
+        return this;
+    }
+    static convexHull(points) {
+        points = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
+        const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+        const lower = [];
+        for (let p of points) {
+            while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0)
+                lower.pop();
+            lower.push(p);
+        }
+        const upper = [];
+        for (let i = points.length - 1; i >= 0; i--) {
+            const p = points[i];
+            while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0)
+                upper.pop();
+            upper.push(p);
+        }
+        upper.pop();
+        lower.pop();
+        const hullPoints = lower.concat(upper);
+        return new CreateJS.ConvexPolygon(hullPoints[0].x, hullPoints[0].y, ...hullPoints.map(point => point.clone().sub(hullPoints[0])));
     }
 };
 CreateJS.Rect = class extends CreateJS.Shape {

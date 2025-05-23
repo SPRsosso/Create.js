@@ -23,6 +23,17 @@ if (canvas) {
 
     const triangle = new CreateJS.ConvexPolygon(0, 0, new CreateJS.Vec2(0, 0), new CreateJS.Vec2(4, 0).mul(4), new CreateJS.Vec2(4, 3).mul(4)).strokeColor("white").stroke();
 
+    const points: CreateJS.Vec2[] = [
+        new CreateJS.Vec2(900, 500),
+        new CreateJS.Vec2(800, 500),
+        new CreateJS.Vec2(800, 600),
+        new CreateJS.Vec2(900, 600)
+    ];
+
+    const polygonFromPoints = CreateJS.ConvexPolygon.convexHull(points).strokeColor("violet").stroke();
+    
+    polygonFromPoints.minScale(1000).maxScale(100000);
+
     const speed = 10;
 
     const keyboardHandler = new CreateJS.KeyboardEvent.Handler();
@@ -40,10 +51,16 @@ if (canvas) {
         velocity.x = -1;
     });
     keyboardHandler.register(CreateJS.KeyboardEvent.Key.ArrowUp, () => {
-        polygon.scaleFrom(1.1);
+        polygonFromPoints.scaleFrom(new CreateJS.Vec2(1.1, 1.5));
     });
     keyboardHandler.register(CreateJS.KeyboardEvent.Key.ArrowDown, () => {
-        polygon.scaleFrom(0.9);
+        polygonFromPoints.scaleFrom(new CreateJS.Vec2(0.9, 0.75));
+    });
+    keyboardHandler.register(CreateJS.KeyboardEvent.Key.ArrowLeft, () => {
+        polygonFromPoints.rotate(CreateJS.Math.degToRad(-1));
+    });
+    keyboardHandler.register(CreateJS.KeyboardEvent.Key.ArrowRight, () => {
+        polygonFromPoints.rotate(CreateJS.Math.degToRad(1));
     });
     keyboardHandler.handle(fps);
 
@@ -59,14 +76,19 @@ if (canvas) {
 
         if (!velocity.isZero())
             velocity.normalize().scaleTo(speed);
-        polygon.translate(velocity.x, velocity.y);
+        polygonFromPoints.translate(velocity.x, velocity.y);
         point = polygon.center().toPoint().size(3).fillColor("red").fill();
         velocity.zero();
 
         const boundingRect = polygon.getBoundingBox().strokeColor("yellow").stroke();
-        const points = polygon.points.map(p => p.clone().add(polygon.position).toPoint().size(5).fillColor("blue").fill())
+        const points = polygon.getVerticesPositions().map(p => p.clone().toPoint().size(5).fillColor("blue").fill());
+        const points2 = polygonFromPoints.getVerticesPositions().map(p => p.clone().toPoint().size(5).fill());
+        points2[0].fillColor("white");
+        points2[1].fillColor("lightgray");
+        points2[2].fillColor("gray");
+        points2[3].fillColor("blue");
 
-        game.run([ line, rect, rect2, rect3, polygon, point, boundingRect, triangle, ...points ]);
+        game.run([ line, rect, rect2, rect3, polygon, point, boundingRect, triangle, ...points, polygonFromPoints, ...points2 ]);
     });
 }
 
