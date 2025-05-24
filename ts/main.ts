@@ -63,6 +63,14 @@ if (canvas) {
         polygonFromPoints.rotate(CreateJS.Math.degToRad(1));
     });
     keyboardHandler.handle(fps);
+    
+    const touchHandler = new CreateJS.TouchEvent.Handler({
+        preventDefault: true
+    });
+    touchHandler.handle(fps);
+    touchHandler.register("touch-handler", ( touches ) => {
+        console.log(touches);
+    });
 
     rect.alignTo(CreateJS.Shape.Anchors.BottomLeft, rect2, CreateJS.Shape.Anchors.TopLeft);
 

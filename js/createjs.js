@@ -253,18 +253,30 @@ CreateJS.Math = class {
 CreateJS.TouchEvent = (_a = class {
     },
     __setFunctionName(_a, "TouchEvent"),
-    _a.Event = {},
     _a.Handler = class {
-        constructor() {
+        constructor(options = { preventDefault: false }) {
             this._unhandle = false;
-            this._touches = new TouchList();
+            this._touches = {
+                length: 0,
+                item: function (index) {
+                    return null;
+                }
+            };
+            this._callbacks = new Map();
+            this._options = options;
             addEventListener("touchstart", (event) => {
+                if (this._options.preventDefault)
+                    event.preventDefault();
                 this._touches = event.touches;
             });
             addEventListener("touchmove", (event) => {
+                if (this._options.preventDefault)
+                    event.preventDefault();
                 this._touches = event.touches;
             });
             addEventListener("touchend", (event) => {
+                if (this._options.preventDefault)
+                    event.preventDefault();
                 this._touches = event.touches;
             });
         }
@@ -275,11 +287,9 @@ CreateJS.TouchEvent = (_a = class {
                         this._unhandle = false;
                         return;
                     }
-                    for (let key of this.heldKeys) {
-                        if (this.callbacks.has(key)) {
-                            this.callbacks.get(key)();
-                        }
-                    }
+                    this._callbacks.forEach(callback => {
+                        callback(this._touches);
+                    });
                     yield CreateJS.TimeHandler.wait(fps);
                 }
             });
@@ -288,7 +298,11 @@ CreateJS.TouchEvent = (_a = class {
             this._unhandle = false;
             return this;
         }
-        register() {
+        register(id, callback) {
+            this._callbacks.set(id, callback);
+        }
+        unregister(id) {
+            this._callbacks.delete(id);
         }
     },
     _a);

@@ -251,24 +251,35 @@ export class CreateJS {
     }
     
     static TouchEvent = class {
-        static Event = {
-            
-        }
         
         static Handler = class {
-            private _unhandle: boolean = false;
-            private _touches: TouchList = new TouchList();
+            private _unhandle: boolean = false
+            private _touches: TouchList = {
+              length: 0,
+              item: function(index: number) {
+                return null;
+              }
+            };
+            private _callbacks: Map<string, ( touches: TouchList ) => void> = new Map();
+            private _options: {
+                preventDefault: boolean
+            }
             
-            constructor() {
+            constructor(options: { preventDefault: boolean } = { preventDefault: false }) {
+                this._options = options;
+                
                 addEventListener("touchstart", ( event: TouchEvent ) => {
+                    if (this._options.preventDefault) event.preventDefault();
                     this._touches = event.touches;
                 });
                 
                 addEventListener("touchmove", ( event: TouchEvent ) => {
+                    if (this._options.preventDefault) event.preventDefault();
                     this._touches = event.touches;
                 });
                 
                 addEventListener("touchend", ( event: TouchEvent ) => {
+                    if (this._options.preventDefault) event.preventDefault();
                     this._touches = event.touches;
                 });
             }
@@ -279,13 +290,11 @@ export class CreateJS {
                         this._unhandle = false;
                         return;
                     }
-
-                    for (let key of this.heldKeys) {
-                        if (this.callbacks.has(key)) {
-                            this.callbacks.get(key)!();
-                        }
-                    }
-
+                    
+                    this._callbacks.forEach(callback => {
+                        callback(this._touches);
+                    });
+                    
                     await CreateJS.TimeHandler.wait(fps);
                 }
             }
@@ -295,8 +304,12 @@ export class CreateJS {
                 return this;
             }
             
-            register() {
-                
+            register(id: string, callback: ( touches: TouchList ) => void): void {
+                this._callbacks.set(id, callback);
+            }
+            
+            unregister(id: string): void {
+                this._callbacks.delete(id);
             }
         }
     }
