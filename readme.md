@@ -1,12 +1,12 @@
 # Create.js
 
-Create.js is a JavaScript (or TypeScript) library which provides game engine like methods to use.
+Create.js is a JavaScript (or TypeScript) library which provides game engine-like methods to use.
 
 This can be helpful when making games. This library provides many classes to choose from, for example: Vec2, KeyboardEvent, Physics, Point, Line, Rect, ConvexShape and much more.
 
 ## Installation
 
-To install Create.js, first you choose version:
+To install Create.js, first you choose the version:
 
 [TypeScript Here](https://raw.githubusercontent.com/SPRsosso/Create.js/refs/heads/main/ts/createjs.ts)
 
@@ -30,15 +30,15 @@ You can use it for basicaly anything but it is suited for game programming.
 
 ## Vec2(x?: number, y?: number)
 
-If arguments are not passed constructor will construct **zero vector** `{ x: 0, y: 0 }`
+If arguments are not passed the constructor will construct **zero vector** `{ x: 0, y: 0 }`
 
-Vec2 class gives you many methods to choose from, methods **change** the current vector (it **doesn't** create new one). 
+Vec2 class gives you many methods to choose from, methods **change** the current vector (it **doesn't** create a new one). 
 
 Methods:
 
 #### `clone(): CreateJS.Vec2`
 
-To make a new vector with the same values you can use clone() method. It returns the cloned (copied) vector (new instance).
+To make a new vector with the same values you can use the clone() method. It returns the cloned (copied) vector (new instance).
 
 ```typescript
 const vector = new CreateJS.Vec2(20, 50);
@@ -47,7 +47,7 @@ const copiedVector = vector.clone(); // Returns Vec2 { x: 20, y: 50 }
 
 #### `add(vec2: CreateJS.Vec2): CreateJS.Vec2`
 
-It adds to current vector another vector. Returns itself.
+It adds to the current vector another vector. Returns itself.
 
 ```typescript
 const vector = new CreateJS.Vec2(20, 50); 
@@ -87,7 +87,7 @@ vector.mul(multiplyBy); // Vector is Vec2 { x: 6, y: 12 }
 
 #### `div(scalar: number): CreateJS.Vec2` | `div(vec2: CreateJS.Vec2): CreateJS.Vec2`
 
-It divides current vector by a scalar or another vector. Returns itself.
+It divides the current vector by a scalar or another vector. Returns itself.
 
 ```typescript
 const vector = new CreateJS.Vec2(2, 10);
@@ -126,7 +126,7 @@ vector.dot(vector2); // Returns 18
 
 #### `lerp(vec2: CreateJS.Vec2, t: number): CreateJS.Vec2`
 
-Linear interpolates current vector to another one by `t` factor. Returns itself.
+Linear interpolates the current vector to another one by the `t` factor. Returns itself.
 
 ```typescript
 const vector = new CreateJS.Vec2(0, 0);
@@ -142,6 +142,19 @@ const vector2 = new CreateJS.Vec2(10, 10);
 const tFactor = 0.85;
 
 vector.lerp(vector2, tFactor); // Vector is Vec2 { x: 8.5, y: 8.5 }
+```
+
+#### `clamp(minVec: CreateJS.Vec2, maxVec: CreateJS.Vec2): CreateJS.Vec2`
+
+Clamps the current vector to expected values. Returns itself.
+
+
+```typescript
+const vector = new CreateJS.Vec2(-10, 30);
+const minVector = new CreateJS.Vec2(-5, 10);
+const maxVector = new CreateJS.Vec2(10, 20);
+
+vector.clamp(minVector, maxVector); // Vector is Vec2 { x: -5, y: 20 }
 ```
 
 
