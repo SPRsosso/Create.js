@@ -249,6 +249,57 @@ export class CreateJS {
             return radians * 180 / Math.PI;
         }
     }
+    
+    static TouchEvent = class {
+        static Event = {
+            
+        }
+        
+        static Handler = class {
+            private _unhandle: boolean = false;
+            private _touches: TouchList = new TouchList();
+            
+            constructor() {
+                addEventListener("touchstart", ( event: TouchEvent ) => {
+                    this._touches = event.touches;
+                });
+                
+                addEventListener("touchmove", ( event: TouchEvent ) => {
+                    this._touches = event.touches;
+                });
+                
+                addEventListener("touchend", ( event: TouchEvent ) => {
+                    this._touches = event.touches;
+                });
+            }
+            
+            async handle(fps: number): Promise<void> {
+                while (true) {
+                    if (this._unhandle) {
+                        this._unhandle = false;
+                        return;
+                    }
+
+                    for (let key of this.heldKeys) {
+                        if (this.callbacks.has(key)) {
+                            this.callbacks.get(key)!();
+                        }
+                    }
+
+                    await CreateJS.TimeHandler.wait(fps);
+                }
+            }
+            
+            unhandle(): CreateJS.TouchEvent.Handler {
+                this._unhandle = false;
+                return this;
+            }
+            
+            register() {
+                
+            }
+        }
+    }
 
     static KeyboardEvent = class {
         static Key = {
@@ -397,15 +448,16 @@ export class CreateJS {
                 }
             }
 
-            unhandle(): void {
+            unhandle(): CreateJS.KeyboardEvent.Handler {
                 this._unhandle = true;
+                return this;
             }
 
-            register(key: Key, callback: () => void) {
+            register(key: Key, callback: () => void): void {
                 this.callbacks.set(key, callback);
             }
 
-            unregister(key: Key) {
+            unregister(key: Key): void {
                 this.callbacks.delete(key);
             }
         }
@@ -781,11 +833,11 @@ export class CreateJS {
 
             return { min, max };
         }
-
+        
         copy(): CreateJS.ConvexPolygon {
             return new CreateJS.ConvexPolygon(this.position.x, this.position.y, ...this.points);
         }
-
+        
         scaleTo(area: number): CreateJS.ConvexPolygon {
             const currentArea = this.area(); // Your polygon's current area
 
@@ -1133,6 +1185,7 @@ export namespace CreateJS {
     export type ConvexPolygon = InstanceType<typeof CreateJS.ConvexPolygon>;
     export type Vec2 = InstanceType<typeof CreateJS.Vec2>;
     export type KeyboardEvent = InstanceType<typeof CreateJS.KeyboardEvent>;
+    export type TouchEvent = InstanceType<typeof CreateJS.TouchEvent>;
     export type TimeHandler = InstanceType<typeof CreateJS.TimeHandler>;
     export type Drawable = {
         draw: (c: CanvasRenderingContext2D) => void;
@@ -1141,6 +1194,10 @@ export namespace CreateJS {
     export namespace KeyboardEvent {
         export type Key = typeof CreateJS.KeyboardEvent.Key;
         export type Handler = InstanceType<typeof CreateJS.KeyboardEvent.Handler>;
+    }
+    
+    export namespace TouchEvent {
+        export type Handler = InstanceType<typeof CreateJS.TouchEvent.Handler>;
     }
 
     export namespace Shape {

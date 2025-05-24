@@ -11,7 +11,7 @@ var __setFunctionName = (this && this.__setFunctionName) || function (f, name, p
     if (typeof name === "symbol") name = name.description ? "[".concat(name.description, "]") : "";
     return Object.defineProperty(f, "name", { configurable: true, value: prefix ? "".concat(prefix, " ", name) : name });
 };
-var _a, _b, _c;
+var _a, _b, _c, _d;
 export class CreateJS {
     constructor(canvas) {
         this._backgroundColor = "white";
@@ -250,10 +250,52 @@ CreateJS.Math = class {
         return radians * 180 / Math.PI;
     }
 };
-CreateJS.KeyboardEvent = (_a = class {
+CreateJS.TouchEvent = (_a = class {
     },
-    __setFunctionName(_a, "KeyboardEvent"),
-    _a.Key = {
+    __setFunctionName(_a, "TouchEvent"),
+    _a.Event = {},
+    _a.Handler = class {
+        constructor() {
+            this._unhandle = false;
+            this._touches = new TouchList();
+            addEventListener("touchstart", (event) => {
+                this._touches = event.touches;
+            });
+            addEventListener("touchmove", (event) => {
+                this._touches = event.touches;
+            });
+            addEventListener("touchend", (event) => {
+                this._touches = event.touches;
+            });
+        }
+        handle(fps) {
+            return __awaiter(this, void 0, void 0, function* () {
+                while (true) {
+                    if (this._unhandle) {
+                        this._unhandle = false;
+                        return;
+                    }
+                    for (let key of this.heldKeys) {
+                        if (this.callbacks.has(key)) {
+                            this.callbacks.get(key)();
+                        }
+                    }
+                    yield CreateJS.TimeHandler.wait(fps);
+                }
+            });
+        }
+        unhandle() {
+            this._unhandle = false;
+            return this;
+        }
+        register() {
+        }
+    },
+    _a);
+CreateJS.KeyboardEvent = (_b = class {
+    },
+    __setFunctionName(_b, "KeyboardEvent"),
+    _b.Key = {
         KeyA: "KeyA",
         KeyB: "KeyB",
         KeyC: "KeyC",
@@ -358,7 +400,7 @@ CreateJS.KeyboardEvent = (_a = class {
         Pause: "Pause",
         ContextMenu: "ContextMenu",
     },
-    _a.Handler = class {
+    _b.Handler = class {
         constructor() {
             this.heldKeys = new Set();
             this.callbacks = new Map();
@@ -388,6 +430,7 @@ CreateJS.KeyboardEvent = (_a = class {
         }
         unhandle() {
             this._unhandle = true;
+            return this;
         }
         register(key, callback) {
             this.callbacks.set(key, callback);
@@ -396,7 +439,7 @@ CreateJS.KeyboardEvent = (_a = class {
             this.callbacks.delete(key);
         }
     },
-    _a);
+    _b);
 CreateJS.Physics = class {
 };
 CreateJS.Point = class {
@@ -476,7 +519,7 @@ CreateJS.Line = class {
         return new CreateJS.Vec2(this.x2 - this.x1, this.y2 - this.y1);
     }
 };
-CreateJS.Shape = (_b = class {
+CreateJS.Shape = (_c = class {
         constructor(x, y) {
             this._fillColor = "white";
             this._strokeColor = "white";
@@ -515,14 +558,14 @@ CreateJS.Shape = (_b = class {
             throw new Error("Function not implemented");
         }
     },
-    __setFunctionName(_b, "Shape"),
-    _b.Anchors = {
+    __setFunctionName(_c, "Shape"),
+    _c.Anchors = {
         TopLeft: "TopLeft",
         TopRight: "TopRight",
         BottomRight: "BottomRight",
         BottomLeft: "BottomLeft"
     },
-    _b);
+    _c);
 CreateJS.ConvexPolygon = class extends CreateJS.Shape {
     constructor(x, y, ...args) {
         super(x, y);
@@ -901,7 +944,7 @@ CreateJS.Rect = class extends CreateJS.Shape {
         return new CreateJS.Rect(point1.x, point1.y, size.x, size.y);
     }
 };
-CreateJS.TimeHandler = (_c = class {
+CreateJS.TimeHandler = (_d = class {
         static wait(ms) {
             return new Promise((resolve, reject) => {
                 setTimeout(() => {
@@ -943,9 +986,9 @@ CreateJS.TimeHandler = (_c = class {
             CreateJS.TimeHandler._pause = false;
         }
     },
-    __setFunctionName(_c, "TimeHandler"),
-    _c.timeBefore = 0,
-    _c._stop = false,
-    _c._pause = false,
-    _c);
+    __setFunctionName(_d, "TimeHandler"),
+    _d.timeBefore = 0,
+    _d._stop = false,
+    _d._pause = false,
+    _d);
 export default CreateJS;
