@@ -11,7 +11,7 @@ var __setFunctionName = (this && this.__setFunctionName) || function (f, name, p
     if (typeof name === "symbol") name = name.description ? "[".concat(name.description, "]") : "";
     return Object.defineProperty(f, "name", { configurable: true, value: prefix ? "".concat(prefix, " ", name) : name });
 };
-var _a, _b, _c, _d;
+var _a, _b, _c, _d, _e;
 export class CreateJS {
     constructor(canvas) {
         this._backgroundColor = "white";
@@ -522,8 +522,6 @@ CreateJS.KeyboardEvent = (_b = class {
         }
     },
     _b);
-CreateJS.Physics = class {
-};
 CreateJS.Point = class {
     constructor(x, y) {
         this._fillColor = "white";
@@ -1039,7 +1037,73 @@ CreateJS.Rect = class extends CreateJS.Shape {
         return new CreateJS.Rect(point1.x, point1.y, size.x, size.y);
     }
 };
-CreateJS.TimeHandler = (_d = class {
+CreateJS.Physics = (_d = class {
+        constructor() {
+            this._bodies = [];
+            this.gravity = new CreateJS.Vec2(0, 0);
+        }
+        addBody(...bodies) {
+            this._bodies.push(...bodies);
+            return this;
+        }
+        removeBody(index, deleteCount = 0) {
+            this._bodies.splice(index, deleteCount);
+            return this;
+        }
+        clearBodies() {
+            this._bodies.length = 0;
+            return this;
+        }
+        setGravity(force) {
+            this.gravity.set(0, force);
+            return this;
+        }
+        update(dt) {
+            this._bodies.forEach(body => {
+                if (!body.static) {
+                    body.applyForce(this.gravity.clone().mul(body.mass));
+                    body.integrate(dt);
+                }
+            });
+        }
+    },
+    __setFunctionName(_d, "Physics"),
+    _d.PhysicsBody = class extends CreateJS.ConvexPolygon {
+        constructor(isStatic, x, y, ...args) {
+            super(x, y, ...args);
+            this.mass = 1;
+            this.velocity = new CreateJS.Vec2(0, 0);
+            this.acceleration = new CreateJS.Vec2(0, 0);
+            this.damping = 0;
+            this.static = isStatic;
+        }
+        setMass(mass) {
+            this.mass = mass;
+            return this;
+        }
+        setDamping(damping) {
+            this.damping = damping;
+            return this;
+        }
+        applyForce(force) {
+            const acceleration = force.clone().div(this.mass);
+            this.acceleration.add(acceleration);
+            return this;
+        }
+        integrate(dt) {
+            this.velocity.add(this.acceleration.clone().mul(dt));
+            this.velocity.mul(1 - this.damping);
+            if (this.velocity.length() < 0.001) {
+                this.velocity.set(0, 0);
+            }
+            this.position.add(this.velocity.clone().mul(dt));
+            this.acceleration.set(0, 0);
+            console.log(this.velocity);
+            return this;
+        }
+    },
+    _d);
+CreateJS.TimeHandler = (_e = class {
         static wait(ms) {
             return new Promise((resolve, reject) => {
                 setTimeout(() => {
@@ -1081,9 +1145,9 @@ CreateJS.TimeHandler = (_d = class {
             CreateJS.TimeHandler._pause = false;
         }
     },
-    __setFunctionName(_d, "TimeHandler"),
-    _d.timeBefore = 0,
-    _d._stop = false,
-    _d._pause = false,
-    _d);
+    __setFunctionName(_e, "TimeHandler"),
+    _e.timeBefore = 0,
+    _e._stop = false,
+    _e._pause = false,
+    _e);
 export default CreateJS;

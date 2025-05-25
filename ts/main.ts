@@ -51,16 +51,16 @@ if (canvas) {
         velocity.x = -1;
     });
     keyboardHandler.register(CreateJS.KeyboardEvent.Key.ArrowUp, () => {
-        polygonFromPoints.scaleFrom(new CreateJS.Vec2(1.1, 1.5));
+        rectP.scaleFrom(1.05);
     });
     keyboardHandler.register(CreateJS.KeyboardEvent.Key.ArrowDown, () => {
-        polygonFromPoints.scaleFrom(new CreateJS.Vec2(0.9, 0.75));
+        rectP.scaleFrom(0.95);
     });
     keyboardHandler.register(CreateJS.KeyboardEvent.Key.ArrowLeft, () => {
-        polygonFromPoints.rotate(CreateJS.Math.degToRad(-1));
+        rectP.rotate(CreateJS.Math.degToRad(-1));
     });
     keyboardHandler.register(CreateJS.KeyboardEvent.Key.ArrowRight, () => {
-        polygonFromPoints.rotate(CreateJS.Math.degToRad(1));
+        rectP.rotate(CreateJS.Math.degToRad(1));
     });
     keyboardHandler.handle(fps);
     
@@ -81,6 +81,12 @@ if (canvas) {
 
     rect.alignTo(CreateJS.Shape.Anchors.BottomLeft, rect2, CreateJS.Shape.Anchors.TopLeft);
 
+    const physics = new CreateJS.Physics();
+    const body = new CreateJS.Physics.PhysicsBody(false, rectP.x, rectP.y, ...rectP.points).setDamping(0.1).fillColor("crimson").fill();
+    body.setMass(5);
+    physics.addBody(body);
+    physics.setGravity(9.8);
+
     CreateJS.TimeHandler.tick(fps, ( currentTick, dt ) => {
         line = line
             .toVec2()
@@ -91,7 +97,7 @@ if (canvas) {
 
         if (!velocity.isZero())
             velocity.normalize().scaleTo(speed);
-        polygonFromPoints.translate(velocity.x, velocity.y);
+        rectP.translate(velocity.x, velocity.y);
         point = polygon.center().toPoint().size(3).fillColor("red").fill();
         velocity.zero();
 
@@ -109,7 +115,8 @@ if (canvas) {
             rectP2.fillColor("green");
         }
 
-        game.run([ line, rect3, polygon, point, boundingRect, triangle, ...points, polygonFromPoints, ...points2, rectP, rectP2 ]);
+        physics.update(dt);
+        game.run([ line, rect3, polygon, point, boundingRect, triangle, ...points, polygonFromPoints, ...points2, rectP, rectP2, body ]);
     });
 }
 

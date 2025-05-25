@@ -259,16 +259,16 @@ export class CreateJS {
             private _rotate: boolean = false;
             private _rotateCallbacks: (( angle: number ) => void)[] = [];
             private _touches: TouchList = {
-              length: 0,
-              item: function(index: number) {
-                return null;
-              }
+                length: 0,
+                item: function(index: number) {
+                    return null;
+                }
             };
             private _previousTouches: TouchList = {
-              length: 0,
-              item: function(index: number) {
-                return null;
-              }
+                length: 0,
+                item: function(index: number) {
+                    return null;
+                }
             };
             private _callbacks: Map<string, ( touches: TouchList ) => void> = new Map();
             private _options: {
@@ -556,10 +556,6 @@ export class CreateJS {
                 this.callbacks.delete(key);
             }
         }
-    }
-
-    static Physics = class {
-
     }
 
     static Point = class {
@@ -1190,6 +1186,82 @@ export class CreateJS {
         }
     }
 
+    static Physics = class {
+        static PhysicsBody = class extends CreateJS.ConvexPolygon {
+            static: boolean;
+            mass: number = 1;
+            velocity: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
+            acceleration: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
+            damping: number = 0;
+
+            constructor(isStatic: boolean, x: number, y: number, ...args: CreateJS.Vec2[]) {
+                super(x, y, ...args);
+
+                this.static = isStatic;
+            }
+
+            setMass(mass: number): CreateJS.Physics.PhysicsBody {
+                this.mass = mass;
+                return this;
+            }
+
+            setDamping(damping: number): CreateJS.Physics.PhysicsBody {
+                this.damping = damping;
+                return this;
+            }
+            
+            applyForce(force: CreateJS.Vec2): CreateJS.Physics.PhysicsBody {
+                const acceleration = force.clone().div(this.mass);
+                this.acceleration.add(acceleration);
+                return this;
+            }
+
+            integrate(dt: number): CreateJS.Physics.PhysicsBody {
+                this.velocity.add(this.acceleration.clone().mul(dt));
+                this.velocity.mul(1 - this.damping);
+                if (this.velocity.length() < 0.001) {
+                    this.velocity.set(0, 0);
+                }
+                this.position.add(this.velocity.clone().mul(dt));
+                this.acceleration.set(0, 0);
+                console.log(this.velocity);
+                return this;
+            }
+        }
+
+        private _bodies: CreateJS.Physics.PhysicsBody[] = [];
+        gravity: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
+
+        addBody(...bodies: CreateJS.Physics.PhysicsBody[]): CreateJS.Physics {
+            this._bodies.push(...bodies);
+            return this;
+        }
+
+        removeBody(index: number, deleteCount: number = 0): CreateJS.Physics {
+            this._bodies.splice(index, deleteCount);
+            return this;
+        }
+
+        clearBodies(): CreateJS.Physics {
+            this._bodies.length = 0;
+            return this;
+        }
+
+        setGravity(force: number): CreateJS.Physics {
+            this.gravity.set(0, force);
+            return this;
+        }
+
+        update(dt: number): void {
+            this._bodies.forEach(body => {
+                if (!body.static) {
+                    body.applyForce(this.gravity.clone().mul(body.mass));
+                    body.integrate(dt);
+                }
+            });
+        }
+    }
+
     static TimeHandler = class {
         private static timeBefore: number = 0;
         private static _stop: boolean = false;
@@ -1296,12 +1368,14 @@ export namespace CreateJS {
     export type Line = InstanceType<typeof CreateJS.Line>;
     export type ConvexPolygon = InstanceType<typeof CreateJS.ConvexPolygon>;
     export type Vec2 = InstanceType<typeof CreateJS.Vec2>;
+    export type Physics = InstanceType<typeof CreateJS.Physics>;
     export type KeyboardEvent = InstanceType<typeof CreateJS.KeyboardEvent>;
     export type TouchEvent = InstanceType<typeof CreateJS.TouchEvent>;
     export type TimeHandler = InstanceType<typeof CreateJS.TimeHandler>;
     export type Drawable = {
         draw: (c: CanvasRenderingContext2D) => void;
     }
+
 
     export namespace KeyboardEvent {
         export type Key = typeof CreateJS.KeyboardEvent.Key;
@@ -1314,6 +1388,10 @@ export namespace CreateJS {
 
     export namespace Shape {
         export type Anchors = typeof CreateJS.Shape.Anchors;
+    }
+
+    export namespace Physics {
+        export type PhysicsBody = InstanceType<typeof CreateJS.Physics.PhysicsBody>;
     }
 }
 
