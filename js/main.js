@@ -52,15 +52,18 @@ if (canvas) {
         polygonFromPoints.rotate(CreateJS.Math.degToRad(1));
     });
     keyboardHandler.handle(fps);
+    const rectP = new CreateJS.ConvexPolygon(100, 100, ...rect.toPolygon()).fillColor("white").fill();
+    const rectP2 = new CreateJS.ConvexPolygon(300, 50, ...rect2.toPolygon()).fillColor("green").fill();
     const touchHandler = new CreateJS.TouchEvent.Handler({
-        preventDefault: true
+        preventDefault: false
     });
     touchHandler.handle(fps);
-    touchHandler.register("touch-handler", (touches) => {
-        console.log(touches);
-    });
+    touchHandler.register("touch-handler", (touches) => { });
     touchHandler.pinch((ratio) => {
-        rect.scaleFrom(ratio);
+        rectP.scaleFrom(ratio);
+    });
+    touchHandler.rotate((angle) => {
+        rectP.rotate(angle * 2);
     });
     rect.alignTo(CreateJS.Shape.Anchors.BottomLeft, rect2, CreateJS.Shape.Anchors.TopLeft);
     CreateJS.TimeHandler.tick(fps, (currentTick, dt) => {
@@ -82,6 +85,12 @@ if (canvas) {
         points2[1].fillColor("lightgray");
         points2[2].fillColor("gray");
         points2[3].fillColor("blue");
-        game.run([line, rect, rect2, rect3, polygon, point, boundingRect, triangle, ...points, polygonFromPoints, ...points2]);
+        if (rectP.intersectsWith(rectP2)) {
+            rectP2.fillColor("lime");
+        }
+        else {
+            rectP2.fillColor("green");
+        }
+        game.run([line, rect3, polygon, point, boundingRect, triangle, ...points, polygonFromPoints, ...points2, rectP, rectP2]);
     });
 }

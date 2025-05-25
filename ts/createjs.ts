@@ -255,8 +255,16 @@ export class CreateJS {
         static Handler = class {
             private _unhandle: boolean = false;
             private _pinch: boolean = false;
-            private _pinchCallback: ( ratio: number ) => void = () => {};
+            private _pinchCallbacks: (( ratio: number ) => void)[] = [];
+            private _rotate: boolean = false;
+            private _rotateCallbacks: (( angle: number ) => void)[] = [];
             private _touches: TouchList = {
+              length: 0,
+              item: function(index: number) {
+                return null;
+              }
+            };
+            private _previousTouches: TouchList = {
               length: 0,
               item: function(index: number) {
                 return null;
@@ -294,30 +302,16 @@ export class CreateJS {
                         return;
                     }
                     
-                    if (this._pinch) {
-                        if (this._touches.length >= 2) {
-                            const [touch1, touch2] = [this._touches[0], this._touches[1]];
-                            
-                            const v1 = new CreateJS.Vec2(touch1.clientX, touch1.clientY);
-                            const v2 = new CreateJS.Vec2(touch2.clientX, touch2.clientY);
-                            
-                            const distance = v1.distanceTo(v2);
-                            
-                            if (pinchBeforeDistance !== null) {
-                                this._pinchCallback(distance / pinchBeforeDistance);
-                            }
-                            
-                            pinchBeforeDistance = distance
-                        } else {
-                            pinchBeforeDistance = null;
-                        }
-                    }
+                    pinchBeforeDistance = this.pinch$(pinchBeforeDistance);
+                    this.rotate$();
                     
                     if (this._touches.length > 0) {
                         this._callbacks.forEach(callback => {
                             callback(this._touches);
                         });
                     }
+                    
+                    this._previousTouches = this._touches;
                     
                     await CreateJS.TimeHandler.wait(fps);
                 }
@@ -338,7 +332,66 @@ export class CreateJS {
             
             pinch(callback: ( ratio: number ) => void): void {
                 this._pinch = true;
-                this._pinchCallback = callback;
+                this._pinchCallbacks.push(callback);
+            }
+            
+            private pinch$(pinchBeforeDistance: number | null): number | null {
+                if (this._pinch) {
+                    if (this._touches.length >= 2) {
+                        const [touch1, touch2] = [this._touches[0], this._touches[1]];
+                        
+                        const v1 = new CreateJS.Vec2(touch1.clientX, touch1.clientY);
+                        const v2 = new CreateJS.Vec2(touch2.clientX, touch2.clientY);
+                        
+                        const distance = v1.distanceTo(v2);
+                        
+                        if (pinchBeforeDistance !== null) {
+                            this._pinchCallbacks.forEach(callback => {
+                                callback(distance / pinchBeforeDistance);
+                            });
+                        }
+                        
+                        return distance
+                    } else {
+                        return null;
+                    }
+                }
+                
+                return null;
+            }
+            
+            rotate(callback: ( angle: number ) => void): void {
+                this._rotate = true
+                this._rotateCallbacks.push(callback);
+            }
+            
+            private rotate$(): void {
+                if (this._rotate) {
+                    if (this._touches.length >= 2) {
+                        if (this._previousTouches.length >= 2) {
+                            const [touch1, touch2] = [this._touches[0], this._touches[1]];
+                            const [pTouch1, pTouch2] = [this._previousTouches[0], this._previousTouches[1]];
+                        
+                            const v1 = new CreateJS.Vec2(touch1.clientX, touch1.clientY);
+                            const v2 = new CreateJS.Vec2(touch2.clientX, touch2.clientY);
+                            const pv1 = new CreateJS.Vec2(pTouch1.clientX, pTouch1.clientY);
+                            const pv2 = new CreateJS.Vec2(pTouch2.clientX, pTouch2.clientY);
+                            
+                            const center = v1.clone().lerp(v2, 0.5);
+                            const pCenter = pv1.clone().lerp(pv2, 0.5);
+                            
+                            v1.sub(center);
+                            pv1.sub(pCenter);
+                            
+                            const dot = pv1.dot(v1);
+                            const cross = pv1.cross(v1);
+                            const angle = Math.atan2(cross, dot);
+                            this._rotateCallbacks.forEach(callback => {
+                                callback(angle);
+                            });
+                        }
+                    }
+                }
             }
         }
     }
@@ -860,6 +913,23 @@ export class CreateJS {
                 }
             }
 
+            return true;
+        }
+        
+        intersectsWith(other: CreateJS.ConvexPolygon): boolean {
+            const axesA = this.getNormals();
+            const axesB = other.getNormals();
+            const axes = axesA.concat(axesB);
+            
+            for (const axis of axes) {
+                const projA = this.project(axis);
+                const projB = other.project(axis);
+                
+                if (!(projA.max >= projB.min && projB.max >= projA.min)) {
+                    return false;
+                }
+            }
+            
             return true;
         }
 

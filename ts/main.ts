@@ -11,7 +11,7 @@ if (canvas) {
         .resizeCanvas(innerWidth, innerHeight);
 
     let line = new CreateJS.Vec2(0, -1).toLine(400, 400).width(3);
-
+    
     const rect = CreateJS.Rect.fromCenter(new CreateJS.Vec2(innerWidth / 2, innerHeight / 2), 100).fillColor("white").fill();
     const rect2 = new CreateJS.Rect(200, 200, 100, 30).fillColor("lime").fill();
     const rect3 = CreateJS.Rect.fromPoints(new CreateJS.Vec2(100, 100), new CreateJS.Vec2(150, 200)).fillColor("blue").fill();
@@ -64,15 +64,19 @@ if (canvas) {
     });
     keyboardHandler.handle(fps);
     
+    const rectP = new CreateJS.ConvexPolygon(100, 100, ...rect.toPolygon()).fillColor("white").fill();
+    const rectP2 = new CreateJS.ConvexPolygon(300, 50, ...rect2.toPolygon()).fillColor("green").fill()
+    
     const touchHandler = new CreateJS.TouchEvent.Handler({
-        preventDefault: true
+        preventDefault: false
     });
     touchHandler.handle(fps);
-    touchHandler.register("touch-handler", ( touches ) => {
-        console.log(touches);
-    });
+    touchHandler.register("touch-handler", ( touches ) => {});
     touchHandler.pinch(( ratio ) => {
-        rect.scaleFrom(ratio);
+        rectP.scaleFrom(ratio);
+    });
+    touchHandler.rotate(( angle ) => {
+        rectP.rotate(angle * 2);
     });
 
     rect.alignTo(CreateJS.Shape.Anchors.BottomLeft, rect2, CreateJS.Shape.Anchors.TopLeft);
@@ -98,8 +102,14 @@ if (canvas) {
         points2[1].fillColor("lightgray");
         points2[2].fillColor("gray");
         points2[3].fillColor("blue");
+        
+        if (rectP.intersectsWith(rectP2)) {
+            rectP2.fillColor("lime");
+        } else {
+            rectP2.fillColor("green");
+        }
 
-        game.run([ line, rect, rect2, rect3, polygon, point, boundingRect, triangle, ...points, polygonFromPoints, ...points2 ]);
+        game.run([ line, rect3, polygon, point, boundingRect, triangle, ...points, polygonFromPoints, ...points2, rectP, rectP2 ]);
     });
 }
 
