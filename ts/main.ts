@@ -71,6 +71,9 @@ if (canvas) {
     touchHandler.register("touch-handler", ( touches ) => {
         console.log(touches);
     });
+    touchHandler.pinch(( ratio ) => {
+        rect.scaleFrom(ratio);
+    });
 
     rect.alignTo(CreateJS.Shape.Anchors.BottomLeft, rect2, CreateJS.Shape.Anchors.TopLeft);
 

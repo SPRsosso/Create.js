@@ -253,7 +253,9 @@ export class CreateJS {
     static TouchEvent = class {
         
         static Handler = class {
-            private _unhandle: boolean = false
+            private _unhandle: boolean = false;
+            private _pinch: boolean = false;
+            private _pinchCallback: ( ratio: number ) => void = () => {};
             private _touches: TouchList = {
               length: 0,
               item: function(index: number) {
@@ -263,7 +265,7 @@ export class CreateJS {
             private _callbacks: Map<string, ( touches: TouchList ) => void> = new Map();
             private _options: {
                 preventDefault: boolean
-            }
+            };
             
             constructor(options: { preventDefault: boolean } = { preventDefault: false }) {
                 this._options = options;
@@ -285,15 +287,37 @@ export class CreateJS {
             }
             
             async handle(fps: number): Promise<void> {
+                let pinchBeforeDistance: number | null = null;
                 while (true) {
                     if (this._unhandle) {
                         this._unhandle = false;
                         return;
                     }
                     
-                    this._callbacks.forEach(callback => {
-                        callback(this._touches);
-                    });
+                    if (this._pinch) {
+                        if (this._touches.length >= 2) {
+                            const [touch1, touch2] = [this._touches[0], this._touches[1]];
+                            
+                            const v1 = new CreateJS.Vec2(touch1.clientX, touch1.clientY);
+                            const v2 = new CreateJS.Vec2(touch2.clientX, touch2.clientY);
+                            
+                            const distance = v1.distanceTo(v2);
+                            
+                            if (pinchBeforeDistance !== null) {
+                                this._pinchCallback(distance / pinchBeforeDistance);
+                            }
+                            
+                            pinchBeforeDistance = distance
+                        } else {
+                            pinchBeforeDistance = null;
+                        }
+                    }
+                    
+                    if (this._touches.length > 0) {
+                        this._callbacks.forEach(callback => {
+                            callback(this._touches);
+                        });
+                    }
                     
                     await CreateJS.TimeHandler.wait(fps);
                 }
@@ -310,6 +334,11 @@ export class CreateJS {
             
             unregister(id: string): void {
                 this._callbacks.delete(id);
+            }
+            
+            pinch(callback: ( ratio: number ) => void): void {
+                this._pinch = true;
+                this._pinchCallback = callback;
             }
         }
     }

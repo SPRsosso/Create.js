@@ -256,6 +256,8 @@ CreateJS.TouchEvent = (_a = class {
     _a.Handler = class {
         constructor(options = { preventDefault: false }) {
             this._unhandle = false;
+            this._pinch = false;
+            this._pinchCallback = () => { };
             this._touches = {
                 length: 0,
                 item: function (index) {
@@ -282,14 +284,32 @@ CreateJS.TouchEvent = (_a = class {
         }
         handle(fps) {
             return __awaiter(this, void 0, void 0, function* () {
+                let pinchBeforeDistance = null;
                 while (true) {
                     if (this._unhandle) {
                         this._unhandle = false;
                         return;
                     }
-                    this._callbacks.forEach(callback => {
-                        callback(this._touches);
-                    });
+                    if (this._pinch) {
+                        if (this._touches.length >= 2) {
+                            const [touch1, touch2] = [this._touches[0], this._touches[1]];
+                            const v1 = new CreateJS.Vec2(touch1.clientX, touch1.clientY);
+                            const v2 = new CreateJS.Vec2(touch2.clientX, touch2.clientY);
+                            const distance = v1.distanceTo(v2);
+                            if (pinchBeforeDistance !== null) {
+                                this._pinchCallback(distance / pinchBeforeDistance);
+                            }
+                            pinchBeforeDistance = distance;
+                        }
+                        else {
+                            pinchBeforeDistance = null;
+                        }
+                    }
+                    if (this._touches.length > 0) {
+                        this._callbacks.forEach(callback => {
+                            callback(this._touches);
+                        });
+                    }
                     yield CreateJS.TimeHandler.wait(fps);
                 }
             });
@@ -303,6 +323,10 @@ CreateJS.TouchEvent = (_a = class {
         }
         unregister(id) {
             this._callbacks.delete(id);
+        }
+        pinch(callback) {
+            this._pinch = true;
+            this._pinchCallback = callback;
         }
     },
     _a);
