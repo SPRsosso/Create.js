@@ -397,7 +397,7 @@ const resultVector = vectorA.vectorTo(vectorB); // resultVector = Vec2 { x: 4, y
 
 #### `set(x: number, y: number): CreateJS.Vec2` | `set(vec2: CreateJS.Vec2): CreateJS.Vec2`
 
-**Sets** current vector's to `x` and `y`, or **copies** `x` and `y` from **another vector**. Passing vector in `set()` method will **set the current vector** to another, not like `copy()` method **which copies (returns new vector)**. Returns itself.
+**Sets** current vector's to `x` and `y`, or **copies** `x` and `y` from **another vector**. Passing vector in `set()` method will **set the current vector** to another, not like `clone()` method **which copies (returns new vector)**. Returns itself.
 
 ```typescript
 const vector = new CreateJS.Vec2(3, 5);
