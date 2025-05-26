@@ -794,7 +794,7 @@ export class CreateJS {
             return this.points.map(p => p.clone().add(this.position));
         }
 
-        getBoundingBox(): CreateJS.Rect {
+        getBoundingBox(): CreateJS.ConvexPolygon {
             let minX = Infinity, minY = Infinity;
             let maxX = -Infinity, maxY = -Infinity;
 
@@ -805,7 +805,7 @@ export class CreateJS {
                 if (v.y > maxY) maxY = v.y;
             }
 
-            return new CreateJS.Rect(this.position.x + minX, this.position.y + minY, maxX - minX, maxY - minY);
+            return CreateJS.ConvexPolygon.createRect(this.position.x + minX, this.position.y + minY, maxX - minX, maxY - minY);
         }
 
         getNormals(): CreateJS.Vec2[] {
@@ -965,6 +965,17 @@ export class CreateJS {
             return this;
         }
 
+        static createRect(x: number, y: number, w: number, h: number): CreateJS.ConvexPolygon {
+            const points = [
+                new CreateJS.Vec2(0, 0),
+                new CreateJS.Vec2(w, 0),
+                new CreateJS.Vec2(w, h),
+                new CreateJS.Vec2(0, h)
+            ];
+            
+            return new CreateJS.ConvexPolygon(x, y, ...points);
+        }
+
         static convexHull(points: CreateJS.Vec2[]): CreateJS.ConvexPolygon {
             points = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
 
@@ -994,272 +1005,86 @@ export class CreateJS {
         }
     }
 
-    static Rect = class extends CreateJS.Shape {
-        size: CreateJS.Vec2;
+    // static Physics = class {
+    //     static PhysicsBody = class extends CreateJS.ConvexPolygon {
+    //         static: boolean;
+    //         mass: number = 1;
+    //         velocity: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
+    //         acceleration: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
+    //         damping: number = 0;
+    //         angularVelocity: number = 0;
+    //         angularAcceleration: number = 0;
 
-        constructor(x: number, y: number, w: number, h: number) {
-            super(x, y);
-            this.size = new CreateJS.Vec2(w, h);
-        }
+    //         constructor(isStatic: boolean, x: number, y: number, ...args: CreateJS.Vec2[]) {
+    //             super(x, y, ...args);
 
-        draw(c: CanvasRenderingContext2D): void {
-            c.beginPath();
-            c.strokeStyle = this._strokeColor;
-            c.fillStyle = this._fillColor;
-            c.lineWidth = this._strokeWidth;
-            c.rect(this.x, this.y, this.w, this.h);
-            if (this._fill) c.fill();
-            if (this._stroke) c.stroke();
-            c.closePath();
-        }
+    //             this.static = isStatic;
+    //         }
 
-        get w() {
-            return this.size.x;
-        }
+    //         setMass(mass: number): CreateJS.Physics.PhysicsBody {
+    //             this.mass = mass;
+    //             return this;
+    //         }
 
-        get h() {
-            return this.size.y;
-        }
-
-        alignTo(thisAnchor: Anchor, rect: CreateJS.Rect, toAnchor: Anchor): CreateJS.Rect {
-            let point = new CreateJS.Vec2();
-            switch(thisAnchor) {
-                case CreateJS.Shape.Anchors.TopRight:
-                    point.set(this.size.x, 0);
-                    break;
-                case CreateJS.Shape.Anchors.BottomRight:
-                    point.set(this.size);
-                    break;
-                case CreateJS.Shape.Anchors.BottomLeft:
-                    point.set(0, this.size.y);
-                    break;
-            }
-
-            let position = new CreateJS.Vec2();
-            switch(toAnchor) {
-                case CreateJS.Shape.Anchors.TopLeft:
-                    position.set(rect.topLeft());
-                    break;
-                case CreateJS.Shape.Anchors.TopRight:
-                    position.set(rect.topRight());
-                    break;
-                case CreateJS.Shape.Anchors.BottomRight:
-                    position.set(rect.bottomRight());
-                    break;
-                case CreateJS.Shape.Anchors.BottomLeft:
-                    position.set(rect.bottomLeft());
-                    break;
-            }
-
-            this.position.set(position).sub(point);
+    //         setDamping(damping: number): CreateJS.Physics.PhysicsBody {
+    //             this.damping = damping;
+    //             return this;
+    //         }
             
-            return this;
-        }
+    //         applyForce(force: CreateJS.Vec2): CreateJS.Physics.PhysicsBody {
+    //             const acceleration = force.clone().div(this.mass);
+    //             this.acceleration.add(acceleration);
+    //             return this;
+    //         }
 
-        anchorAt(vec2: CreateJS.Vec2, anchor: Anchor): CreateJS.Rect {
-            this.position.set(vec2);
-            switch(anchor) {
-                case CreateJS.Shape.Anchors.TopRight:
-                    this.position.sub(new CreateJS.Vec2(this.size.x, 0));
-                    break;
-                case CreateJS.Shape.Anchors.BottomRight:
-                    this.position.sub(this.size);
-                    break;
-                case CreateJS.Shape.Anchors.BottomLeft:
-                    this.position.sub(new CreateJS.Vec2(0, this.size.y));
-                    break;
-            }
+    //         applyTorque() {
 
-            return this;
-        }
+    //         }
 
-        translate(dx: number, dy: number): CreateJS.Rect {
-            this.position.add(new CreateJS.Vec2(dx, dy));
-            return this;
-        }
+    //         integrate(dt: number): CreateJS.Physics.PhysicsBody {
+    //             this.velocity.add(this.acceleration.clone().mul(dt));
+    //             this.velocity.mul(1 - this.damping);
+    //             if (this.velocity.length() < 0.001) {
+    //                 this.velocity.set(0, 0);
+    //             }
+    //             this.position.add(this.velocity.clone().mul(dt));
+    //             this.acceleration.set(0, 0);
+    //             return this;
+    //         }
+    //     }
 
-        scale(scalar: number): CreateJS.Rect;
-        scale(wFactor: number, hFactor: number): CreateJS.Rect;
-        scale(wFactor: number, hFactor?: number): CreateJS.Rect {
-            if (hFactor === undefined) {
-                this.size.mul(wFactor);
-                return this;
-            } else {
-                this.size.x *= wFactor;
-                this.size.y *= hFactor;
-                return this;
-            }
-        }
+    //     private _bodies: CreateJS.Physics.PhysicsBody[] = [];
+    //     gravity: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
 
-        scaleFrom(scalar: number, origin?: CreateJS.Vec2): CreateJS.Rect;
-        scaleFrom(wFactor: number, hFactor: number, origin?: CreateJS.Vec2): CreateJS.Rect;
-        scaleFrom(wFactor: number, hFactor: number | CreateJS.Vec2 = this.center(), origin: CreateJS.Vec2 = this.center()): CreateJS.Rect {
-            const offset = this.position.clone().sub(origin);
-            
-            if (typeof hFactor === "number") {
-                const scaledOffset = offset.mul(new CreateJS.Vec2(wFactor, hFactor));
-                this.size.mul(new CreateJS.Vec2(wFactor, hFactor));
-                this.position = origin.clone().add(scaledOffset);
-            } else if (typeof hFactor === "object") {
-                const scaledOffset = offset.mul(wFactor);
-                this.size.mul(wFactor);
-                this.position = hFactor.clone().add(scaledOffset);
-            }
+    //     addBody(...bodies: CreateJS.Physics.PhysicsBody[]): CreateJS.Physics {
+    //         this._bodies.push(...bodies);
+    //         return this;
+    //     }
 
-            return this;
-        }
+    //     removeBody(index: number, deleteCount: number = 0): CreateJS.Physics {
+    //         this._bodies.splice(index, deleteCount);
+    //         return this;
+    //     }
 
-        containsPoint(point: CreateJS.Vec2): boolean {
-            return (
-                point.x >= this.position.x &&
-                point.x <= this.position.x + this.size.x &&
-                point.y >= this.position.y &&
-                point.y <= this.position.y + this.size.y
-            );
-        }
+    //     clearBodies(): CreateJS.Physics {
+    //         this._bodies.length = 0;
+    //         return this;
+    //     }
 
-        contains(rect: CreateJS.Rect): boolean {
-            return (
-                this.containsPoint(rect.topLeft()) &&
-                this.containsPoint(rect.topRight()) &&
-                this.containsPoint(rect.bottomRight()) &&
-                this.containsPoint(rect.bottomLeft())
-            );
-        }
+    //     setGravity(force: number): CreateJS.Physics {
+    //         this.gravity.set(0, force);
+    //         return this;
+    //     }
 
-        aspectRatio(): number {
-            return this.w / this.h;
-        }
-
-        area(): number {
-            return this.w * this.h;
-        }
-
-        topLeft(): CreateJS.Vec2 {
-            return this.position.clone();
-        }
-
-        topRight(): CreateJS.Vec2 {
-            return this.position.clone().add(new CreateJS.Vec2(this.size.x, 0));
-        }
-
-        bottomRight(): CreateJS.Vec2 {
-            return this.position.clone().add(this.size);
-        }
-
-        bottomLeft(): CreateJS.Vec2 {
-            return this.position.clone().add(new CreateJS.Vec2(0, this.size.y));
-        }
-
-        center(): CreateJS.Vec2 {
-            return this.position.clone().add(this.size.clone().div(2));
-        }
-
-        toBounds(): { x: number, y: number, w: number, h: number } {
-            return {
-                x: this.x,
-                y: this.y,
-                w: this.w,
-                h: this.h
-            };
-        }
-
-        toPolygon(): CreateJS.Vec2[] {
-            return [
-                this.topLeft().clone().sub(this.position),
-                this.topRight().clone().sub(this.position),
-                this.bottomRight().clone().sub(this.position),
-                this.bottomLeft().clone().sub(this.position)
-            ]
-        }
-
-        static fromCenter(center: CreateJS.Vec2, size: number): CreateJS.Rect {
-            const rectSize = new CreateJS.Vec2(size, size);
-            const pos = center.clone().sub(rectSize.div(2));
-            return new CreateJS.Rect(pos.x, pos.y, size, size);
-        }
-
-        static fromPoints(point1: CreateJS.Vec2, point2: CreateJS.Vec2): CreateJS.Rect {
-            const size = point1.vectorTo(point2);
-
-            return new CreateJS.Rect(point1.x, point1.y, size.x, size.y);
-        }
-    }
-
-    static Physics = class {
-        static PhysicsBody = class extends CreateJS.ConvexPolygon {
-            static: boolean;
-            mass: number = 1;
-            velocity: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
-            acceleration: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
-            damping: number = 0;
-
-            constructor(isStatic: boolean, x: number, y: number, ...args: CreateJS.Vec2[]) {
-                super(x, y, ...args);
-
-                this.static = isStatic;
-            }
-
-            setMass(mass: number): CreateJS.Physics.PhysicsBody {
-                this.mass = mass;
-                return this;
-            }
-
-            setDamping(damping: number): CreateJS.Physics.PhysicsBody {
-                this.damping = damping;
-                return this;
-            }
-            
-            applyForce(force: CreateJS.Vec2): CreateJS.Physics.PhysicsBody {
-                const acceleration = force.clone().div(this.mass);
-                this.acceleration.add(acceleration);
-                return this;
-            }
-
-            integrate(dt: number): CreateJS.Physics.PhysicsBody {
-                this.velocity.add(this.acceleration.clone().mul(dt));
-                this.velocity.mul(1 - this.damping);
-                if (this.velocity.length() < 0.001) {
-                    this.velocity.set(0, 0);
-                }
-                this.position.add(this.velocity.clone().mul(dt));
-                this.acceleration.set(0, 0);
-                return this;
-            }
-        }
-
-        private _bodies: CreateJS.Physics.PhysicsBody[] = [];
-        gravity: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
-
-        addBody(...bodies: CreateJS.Physics.PhysicsBody[]): CreateJS.Physics {
-            this._bodies.push(...bodies);
-            return this;
-        }
-
-        removeBody(index: number, deleteCount: number = 0): CreateJS.Physics {
-            this._bodies.splice(index, deleteCount);
-            return this;
-        }
-
-        clearBodies(): CreateJS.Physics {
-            this._bodies.length = 0;
-            return this;
-        }
-
-        setGravity(force: number): CreateJS.Physics {
-            this.gravity.set(0, force);
-            return this;
-        }
-
-        update(dt: number): void {
-            this._bodies.forEach(body => {
-                if (!body.static) {
-                    body.applyForce(this.gravity.clone().mul(body.mass));
-                    body.integrate(dt);
-                }
-            });
-        }
-    }
+    //     update(dt: number): void {
+    //         this._bodies.forEach(body => {
+    //             if (!body.static) {
+    //                 body.applyForce(this.gravity.clone().mul(body.mass));
+    //                 body.integrate(dt);
+    //             }
+    //         });
+    //     }
+    // }
 
     static TimeHandler = class {
         private static timeBefore: number = 0;
@@ -1345,7 +1170,7 @@ export class CreateJS {
         return this;
     }
 
-    run(objects?: CreateJS.Drawable[]): void {
+    render(objects?: CreateJS.Drawable[]): void {
         this.c.fillStyle = this._backgroundColor;
         this.c.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -1362,12 +1187,11 @@ export type Key = string;
 export type Anchor = string;
 export namespace CreateJS {
     export type Shape = InstanceType<typeof CreateJS.Shape>;
-    export type Rect = InstanceType<typeof CreateJS.Rect>;
     export type Point = InstanceType<typeof CreateJS.Point>;
     export type Line = InstanceType<typeof CreateJS.Line>;
     export type ConvexPolygon = InstanceType<typeof CreateJS.ConvexPolygon>;
     export type Vec2 = InstanceType<typeof CreateJS.Vec2>;
-    export type Physics = InstanceType<typeof CreateJS.Physics>;
+    // export type Physics = InstanceType<typeof CreateJS.Physics>;
     export type KeyboardEvent = InstanceType<typeof CreateJS.KeyboardEvent>;
     export type TouchEvent = InstanceType<typeof CreateJS.TouchEvent>;
     export type TimeHandler = InstanceType<typeof CreateJS.TimeHandler>;
@@ -1389,9 +1213,9 @@ export namespace CreateJS {
         export type Anchors = typeof CreateJS.Shape.Anchors;
     }
 
-    export namespace Physics {
-        export type PhysicsBody = InstanceType<typeof CreateJS.Physics.PhysicsBody>;
-    }
+    // export namespace Physics {
+    //     export type PhysicsBody = InstanceType<typeof CreateJS.Physics.PhysicsBody>;
+    // }
 }
 
 export default CreateJS;

@@ -11,7 +11,7 @@ var __setFunctionName = (this && this.__setFunctionName) || function (f, name, p
     if (typeof name === "symbol") name = name.description ? "[".concat(name.description, "]") : "";
     return Object.defineProperty(f, "name", { configurable: true, value: prefix ? "".concat(prefix, " ", name) : name });
 };
-var _a, _b, _c, _d, _e;
+var _a, _b, _c, _d;
 export class CreateJS {
     constructor(canvas) {
         this._backgroundColor = "white";
@@ -34,7 +34,7 @@ export class CreateJS {
         this._backgroundColor = color;
         return this;
     }
-    run(objects) {
+    render(objects) {
         this.c.fillStyle = this._backgroundColor;
         this.c.fillRect(0, 0, this.canvas.width, this.canvas.height);
         if (objects) {
@@ -207,11 +207,11 @@ CreateJS.Vec2 = class {
         return this;
     }
     up() {
-        this.set(0, 1);
+        this.set(0, -1);
         return this;
     }
     down() {
-        this.set(0, -1);
+        this.set(0, 1);
         return this;
     }
     left() {
@@ -735,7 +735,7 @@ CreateJS.ConvexPolygon = class extends CreateJS.Shape {
             if (v.y > maxY)
                 maxY = v.y;
         }
-        return new CreateJS.Rect(this.position.x + minX, this.position.y + minY, maxX - minX, maxY - minY);
+        return CreateJS.ConvexPolygon.createRect(this.position.x + minX, this.position.y + minY, maxX - minX, maxY - minY);
     }
     getNormals() {
         const normals = [];
@@ -858,6 +858,15 @@ CreateJS.ConvexPolygon = class extends CreateJS.Shape {
         this._maxScale = area;
         return this;
     }
+    static createRect(x, y, w, h) {
+        const points = [
+            new CreateJS.Vec2(0, 0),
+            new CreateJS.Vec2(w, 0),
+            new CreateJS.Vec2(w, h),
+            new CreateJS.Vec2(0, h)
+        ];
+        return new CreateJS.ConvexPolygon(x, y, ...points);
+    }
     static convexHull(points) {
         points = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
         const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
@@ -880,229 +889,73 @@ CreateJS.ConvexPolygon = class extends CreateJS.Shape {
         return new CreateJS.ConvexPolygon(hullPoints[0].x, hullPoints[0].y, ...hullPoints.map(point => point.clone().sub(hullPoints[0])));
     }
 };
-CreateJS.Rect = class extends CreateJS.Shape {
-    constructor(x, y, w, h) {
-        super(x, y);
-        this.size = new CreateJS.Vec2(w, h);
-    }
-    draw(c) {
-        c.beginPath();
-        c.strokeStyle = this._strokeColor;
-        c.fillStyle = this._fillColor;
-        c.lineWidth = this._strokeWidth;
-        c.rect(this.x, this.y, this.w, this.h);
-        if (this._fill)
-            c.fill();
-        if (this._stroke)
-            c.stroke();
-        c.closePath();
-    }
-    get w() {
-        return this.size.x;
-    }
-    get h() {
-        return this.size.y;
-    }
-    alignTo(thisAnchor, rect, toAnchor) {
-        let point = new CreateJS.Vec2();
-        switch (thisAnchor) {
-            case CreateJS.Shape.Anchors.TopRight:
-                point.set(this.size.x, 0);
-                break;
-            case CreateJS.Shape.Anchors.BottomRight:
-                point.set(this.size);
-                break;
-            case CreateJS.Shape.Anchors.BottomLeft:
-                point.set(0, this.size.y);
-                break;
-        }
-        let position = new CreateJS.Vec2();
-        switch (toAnchor) {
-            case CreateJS.Shape.Anchors.TopLeft:
-                position.set(rect.topLeft());
-                break;
-            case CreateJS.Shape.Anchors.TopRight:
-                position.set(rect.topRight());
-                break;
-            case CreateJS.Shape.Anchors.BottomRight:
-                position.set(rect.bottomRight());
-                break;
-            case CreateJS.Shape.Anchors.BottomLeft:
-                position.set(rect.bottomLeft());
-                break;
-        }
-        this.position.set(position).sub(point);
-        return this;
-    }
-    anchorAt(vec2, anchor) {
-        this.position.set(vec2);
-        switch (anchor) {
-            case CreateJS.Shape.Anchors.TopRight:
-                this.position.sub(new CreateJS.Vec2(this.size.x, 0));
-                break;
-            case CreateJS.Shape.Anchors.BottomRight:
-                this.position.sub(this.size);
-                break;
-            case CreateJS.Shape.Anchors.BottomLeft:
-                this.position.sub(new CreateJS.Vec2(0, this.size.y));
-                break;
-        }
-        return this;
-    }
-    translate(dx, dy) {
-        this.position.add(new CreateJS.Vec2(dx, dy));
-        return this;
-    }
-    scale(wFactor, hFactor) {
-        if (hFactor === undefined) {
-            this.size.mul(wFactor);
-            return this;
-        }
-        else {
-            this.size.x *= wFactor;
-            this.size.y *= hFactor;
-            return this;
-        }
-    }
-    scaleFrom(wFactor, hFactor = this.center(), origin = this.center()) {
-        const offset = this.position.clone().sub(origin);
-        if (typeof hFactor === "number") {
-            const scaledOffset = offset.mul(new CreateJS.Vec2(wFactor, hFactor));
-            this.size.mul(new CreateJS.Vec2(wFactor, hFactor));
-            this.position = origin.clone().add(scaledOffset);
-        }
-        else if (typeof hFactor === "object") {
-            const scaledOffset = offset.mul(wFactor);
-            this.size.mul(wFactor);
-            this.position = hFactor.clone().add(scaledOffset);
-        }
-        return this;
-    }
-    containsPoint(point) {
-        return (point.x >= this.position.x &&
-            point.x <= this.position.x + this.size.x &&
-            point.y >= this.position.y &&
-            point.y <= this.position.y + this.size.y);
-    }
-    contains(rect) {
-        return (this.containsPoint(rect.topLeft()) &&
-            this.containsPoint(rect.topRight()) &&
-            this.containsPoint(rect.bottomRight()) &&
-            this.containsPoint(rect.bottomLeft()));
-    }
-    aspectRatio() {
-        return this.w / this.h;
-    }
-    area() {
-        return this.w * this.h;
-    }
-    topLeft() {
-        return this.position.clone();
-    }
-    topRight() {
-        return this.position.clone().add(new CreateJS.Vec2(this.size.x, 0));
-    }
-    bottomRight() {
-        return this.position.clone().add(this.size);
-    }
-    bottomLeft() {
-        return this.position.clone().add(new CreateJS.Vec2(0, this.size.y));
-    }
-    center() {
-        return this.position.clone().add(this.size.clone().div(2));
-    }
-    toBounds() {
-        return {
-            x: this.x,
-            y: this.y,
-            w: this.w,
-            h: this.h
-        };
-    }
-    toPolygon() {
-        return [
-            this.topLeft().clone().sub(this.position),
-            this.topRight().clone().sub(this.position),
-            this.bottomRight().clone().sub(this.position),
-            this.bottomLeft().clone().sub(this.position)
-        ];
-    }
-    static fromCenter(center, size) {
-        const rectSize = new CreateJS.Vec2(size, size);
-        const pos = center.clone().sub(rectSize.div(2));
-        return new CreateJS.Rect(pos.x, pos.y, size, size);
-    }
-    static fromPoints(point1, point2) {
-        const size = point1.vectorTo(point2);
-        return new CreateJS.Rect(point1.x, point1.y, size.x, size.y);
-    }
-};
-CreateJS.Physics = (_d = class {
-        constructor() {
-            this._bodies = [];
-            this.gravity = new CreateJS.Vec2(0, 0);
-        }
-        addBody(...bodies) {
-            this._bodies.push(...bodies);
-            return this;
-        }
-        removeBody(index, deleteCount = 0) {
-            this._bodies.splice(index, deleteCount);
-            return this;
-        }
-        clearBodies() {
-            this._bodies.length = 0;
-            return this;
-        }
-        setGravity(force) {
-            this.gravity.set(0, force);
-            return this;
-        }
-        update(dt) {
-            this._bodies.forEach(body => {
-                if (!body.static) {
-                    body.applyForce(this.gravity.clone().mul(body.mass));
-                    body.integrate(dt);
-                }
-            });
-        }
-    },
-    __setFunctionName(_d, "Physics"),
-    _d.PhysicsBody = class extends CreateJS.ConvexPolygon {
-        constructor(isStatic, x, y, ...args) {
-            super(x, y, ...args);
-            this.mass = 1;
-            this.velocity = new CreateJS.Vec2(0, 0);
-            this.acceleration = new CreateJS.Vec2(0, 0);
-            this.damping = 0;
-            this.static = isStatic;
-        }
-        setMass(mass) {
-            this.mass = mass;
-            return this;
-        }
-        setDamping(damping) {
-            this.damping = damping;
-            return this;
-        }
-        applyForce(force) {
-            const acceleration = force.clone().div(this.mass);
-            this.acceleration.add(acceleration);
-            return this;
-        }
-        integrate(dt) {
-            this.velocity.add(this.acceleration.clone().mul(dt));
-            this.velocity.mul(1 - this.damping);
-            if (this.velocity.length() < 0.001) {
-                this.velocity.set(0, 0);
-            }
-            this.position.add(this.velocity.clone().mul(dt));
-            this.acceleration.set(0, 0);
-            return this;
-        }
-    },
-    _d);
-CreateJS.TimeHandler = (_e = class {
+// static Physics = class {
+//     static PhysicsBody = class extends CreateJS.ConvexPolygon {
+//         static: boolean;
+//         mass: number = 1;
+//         velocity: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
+//         acceleration: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
+//         damping: number = 0;
+//         angularVelocity: number = 0;
+//         angularAcceleration: number = 0;
+//         constructor(isStatic: boolean, x: number, y: number, ...args: CreateJS.Vec2[]) {
+//             super(x, y, ...args);
+//             this.static = isStatic;
+//         }
+//         setMass(mass: number): CreateJS.Physics.PhysicsBody {
+//             this.mass = mass;
+//             return this;
+//         }
+//         setDamping(damping: number): CreateJS.Physics.PhysicsBody {
+//             this.damping = damping;
+//             return this;
+//         }
+//         applyForce(force: CreateJS.Vec2): CreateJS.Physics.PhysicsBody {
+//             const acceleration = force.clone().div(this.mass);
+//             this.acceleration.add(acceleration);
+//             return this;
+//         }
+//         applyTorque() {
+//         }
+//         integrate(dt: number): CreateJS.Physics.PhysicsBody {
+//             this.velocity.add(this.acceleration.clone().mul(dt));
+//             this.velocity.mul(1 - this.damping);
+//             if (this.velocity.length() < 0.001) {
+//                 this.velocity.set(0, 0);
+//             }
+//             this.position.add(this.velocity.clone().mul(dt));
+//             this.acceleration.set(0, 0);
+//             return this;
+//         }
+//     }
+//     private _bodies: CreateJS.Physics.PhysicsBody[] = [];
+//     gravity: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
+//     addBody(...bodies: CreateJS.Physics.PhysicsBody[]): CreateJS.Physics {
+//         this._bodies.push(...bodies);
+//         return this;
+//     }
+//     removeBody(index: number, deleteCount: number = 0): CreateJS.Physics {
+//         this._bodies.splice(index, deleteCount);
+//         return this;
+//     }
+//     clearBodies(): CreateJS.Physics {
+//         this._bodies.length = 0;
+//         return this;
+//     }
+//     setGravity(force: number): CreateJS.Physics {
+//         this.gravity.set(0, force);
+//         return this;
+//     }
+//     update(dt: number): void {
+//         this._bodies.forEach(body => {
+//             if (!body.static) {
+//                 body.applyForce(this.gravity.clone().mul(body.mass));
+//                 body.integrate(dt);
+//             }
+//         });
+//     }
+// }
+CreateJS.TimeHandler = (_d = class {
         static wait(ms) {
             return new Promise((resolve, reject) => {
                 setTimeout(() => {
@@ -1144,9 +997,9 @@ CreateJS.TimeHandler = (_e = class {
             CreateJS.TimeHandler._pause = false;
         }
     },
-    __setFunctionName(_e, "TimeHandler"),
-    _e.timeBefore = 0,
-    _e._stop = false,
-    _e._pause = false,
-    _e);
+    __setFunctionName(_d, "TimeHandler"),
+    _d.timeBefore = 0,
+    _d._stop = false,
+    _d._pause = false,
+    _d);
 export default CreateJS;
