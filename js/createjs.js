@@ -1098,7 +1098,6 @@ CreateJS.Physics = (_d = class {
             }
             this.position.add(this.velocity.clone().mul(dt));
             this.acceleration.set(0, 0);
-            console.log(this.velocity);
             return this;
         }
     },
