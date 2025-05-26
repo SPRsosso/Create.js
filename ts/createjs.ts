@@ -195,12 +195,12 @@ export class CreateJS {
         }
 
         up(): CreateJS.Vec2 {
-            this.set(0, 1);
+            this.set(0, -1);
             return this;
         }
 
         down(): CreateJS.Vec2 {
-            this.set(0, -1);
+            this.set(0, 1);
             return this;
         }
 

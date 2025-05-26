@@ -412,6 +412,106 @@ const copyVector = new CreateJS.Vec2(13, 7);
 vector.set(copyVector); // Vector is Vec2 { x: 13, y: 7 }
 ```
 
+#### `up(): CreateJS.Vec2`
+
+**Makes** current vector an up vector. **Sets** current vector to (0,-1). Returns itself.
+
+```typescript
+const vector = new CreateJS.Vec2(5, 19);
+
+vector.up(); // Vector is Vec2 { x: 0, y: -1 }
+```
+
+#### `down(): CreateJS.Vec2`
+
+**Makes** current vector a down vector. **Sets** current vector to (0,1). Returns itself.
+
+```typescript
+const vector = new CreateJS.Vec2(5, 19);
+
+vector.down(); // Vector is Vec2 { x: 0, y: 1 }
+```
+
+#### `left(): CreateJS.Vec2`
+
+**Makes** current vector a left vector. **Sets** current vector to (-1,0). Returns itself.
+
+```typescript
+const vector = new CreateJS.Vec2(5, 19);
+
+vector.left(); // Vector is Vec2 { x: -1, y: 0 }
+```
+
+#### `right(): CreateJS.Vec2`
+
+**Makes** current vector a right vector. **Sets** current vector to (1,0). Returns itself.
+
+```typescript
+const vector = new CreateJS.Vec2(5, 19);
+
+vector.right(); // Vector is Vec2 { x: 1, y: 0 }
+```
+
+#### `zero(): CreateJS.Vec2`
+
+**Makes** current vector a zero vector. **Sets** current vector to (0,0). Returns itself.
+
+```typescript
+const vector = new CreateJS.Vec2(5, 19);
+
+vector.zero(); // Vector is Vec2 { x: 0, y: 0 }
+```
+
+#### `toArray(): number[]`
+
+**Converts** current vector to an array and returns it [x, y].
+
+```typescript
+const vector = new CreateJS.Vec2(17, 53);
+
+const resultArray = vector.toArray(); // resultArray = [17, 53]
+```
+
+#### `toString(): string`
+
+Converts current vector to string and returns it.
+
+```typescript
+const vector = new CreateJS.Vec2(10, 13);
+
+const stringified = vector.toString(); // stringified = "x: 10, y: 13";
+```
+
+#### `toLine(startX: number = 0, startY: number = 0): CreateJS.Line`
+
+**Converts** current vector to a line with start position `x` and `y`, and an **end point** which is at **positon added to vector**. Returns newly created line.
+
+```typescript
+const vector = new CreateJS.Vec2(10, 15);
+
+const line = vector.toLine(100, 100); // line = Line { x1: 100, y1: 100, x2: 110, y2: 115 }
+```
+
+#### `toPoint(): CreateJS.Point`
+
+**Converts** current vector to a point positioned at vector's x and y. Returns newly created point.
+
+```typescript
+const vector = new CreateJS.Vec2(40, 78);
+
+const point = vector.toPoint(); // point = Point { x: 40, y: 78 }
+```
+
+#### `*static fromArray(arr: number[]): CreateJS.Vec2`
+
+**Creates** a new instance of CreateJS.Vec2 **based on** array [x,y]. Returns newly created vector.
+
+```typescript
+const array = [5, 20];
+
+const vector = CreateJS.Vec2.fromArray(array); // vector = Vec2 { x: 5, y: 20 }
+```
+
 ## Contributing
 
 Pull requests are welcome. For major changes, please open an issue first
