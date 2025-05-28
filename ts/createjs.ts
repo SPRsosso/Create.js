@@ -730,12 +730,12 @@ export class CreateJS {
 
         draw(c: CanvasRenderingContext2D) {
             c.beginPath();
-            // c.moveTo(this.x, this.y);
             for (let i = 0; i < this.points.length; i++) {
                 const pointPosition = this.position.clone().add(this.points[i]);
                 c.lineTo(pointPosition.x, pointPosition.y);
             }
             c.closePath();
+            c.lineWidth = this._strokeWidth;
             c.fillStyle = this._fillColor;
             c.strokeStyle = this._strokeColor;
             if (this._fill) c.fill();
@@ -1071,6 +1071,19 @@ export class CreateJS {
                 new CreateJS.Vec2(0, h)
             ];
             
+            return new CreateJS.ConvexPolygon(x, y, ...points);
+        }
+
+        static createCircle(x: number, y: number, radius: number, accuracy: number = 4) {
+            const degreePerStep = 360 / accuracy;
+            const rotatingVector = new CreateJS.Vec2().up();
+            const points: CreateJS.Vec2[] = [];
+
+            for (let i = 0; i < accuracy; i++) {
+                points.push(rotatingVector.clone().scaleTo(radius));
+                rotatingVector.rotate(CreateJS.Math.degToRad(degreePerStep));
+            }
+
             return new CreateJS.ConvexPolygon(x, y, ...points);
         }
 

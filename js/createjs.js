@@ -668,12 +668,12 @@ CreateJS.ConvexPolygon = class extends CreateJS.Shape {
     }
     draw(c) {
         c.beginPath();
-        // c.moveTo(this.x, this.y);
         for (let i = 0; i < this.points.length; i++) {
             const pointPosition = this.position.clone().add(this.points[i]);
             c.lineTo(pointPosition.x, pointPosition.y);
         }
         c.closePath();
+        c.lineWidth = this._strokeWidth;
         c.fillStyle = this._fillColor;
         c.strokeStyle = this._strokeColor;
         if (this._fill)
@@ -946,6 +946,16 @@ CreateJS.ConvexPolygon = class extends CreateJS.Shape {
             new CreateJS.Vec2(w, h),
             new CreateJS.Vec2(0, h)
         ];
+        return new CreateJS.ConvexPolygon(x, y, ...points);
+    }
+    static createCircle(x, y, radius, accuracy = 4) {
+        const degreePerStep = 360 / accuracy;
+        const rotatingVector = new CreateJS.Vec2().up();
+        const points = [];
+        for (let i = 0; i < accuracy; i++) {
+            points.push(rotatingVector.clone().scaleTo(radius));
+            rotatingVector.rotate(CreateJS.Math.degToRad(degreePerStep));
+        }
         return new CreateJS.ConvexPolygon(x, y, ...points);
     }
     static convexHull(points) {
