@@ -11,7 +11,7 @@ var __setFunctionName = (this && this.__setFunctionName) || function (f, name, p
     if (typeof name === "symbol") name = name.description ? "[".concat(name.description, "]") : "";
     return Object.defineProperty(f, "name", { configurable: true, value: prefix ? "".concat(prefix, " ", name) : name });
 };
-var _a, _b, _c, _d;
+var _a, _b, _c, _d, _e, _f;
 export class CreateJS {
     constructor(canvas) {
         this._backgroundColor = "white";
@@ -242,18 +242,30 @@ CreateJS.Vec2 = class {
         return new CreateJS.Vec2(arr[0], arr[1]);
     }
 };
-CreateJS.Math = class {
-    static degToRad(degrees) {
-        return degrees * Math.PI / 180;
-    }
-    static radToDeg(radians) {
-        return radians * 180 / Math.PI;
-    }
-};
-CreateJS.TouchEvent = (_a = class {
+CreateJS.Math = (_a = class {
+        static degToRad(degrees) {
+            return degrees * Math.PI / 180;
+        }
+        static radToDeg(radians) {
+            return radians * 180 / Math.PI;
+        }
+        static clamp(num, min, max) {
+            return num < min ? min : (num > max ? max : num);
+        }
+        static pxToMeter(px) {
+            return px * CreateJS.Math.METER;
+        }
+        static meterToPx(meter) {
+            return meter / CreateJS.Math.METER;
+        }
     },
-    __setFunctionName(_a, "TouchEvent"),
-    _a.Handler = class {
+    __setFunctionName(_a, "Math"),
+    _a.METER = 1 / 100,
+    _a);
+CreateJS.TouchEvent = (_b = class {
+    },
+    __setFunctionName(_b, "TouchEvent"),
+    _b.Handler = class {
         constructor(options = { preventDefault: false }) {
             this._unhandle = false;
             this._pinch = false;
@@ -373,11 +385,11 @@ CreateJS.TouchEvent = (_a = class {
             }
         }
     },
-    _a);
-CreateJS.KeyboardEvent = (_b = class {
+    _b);
+CreateJS.KeyboardEvent = (_c = class {
     },
-    __setFunctionName(_b, "KeyboardEvent"),
-    _b.Key = {
+    __setFunctionName(_c, "KeyboardEvent"),
+    _c.Key = {
         KeyA: "KeyA",
         KeyB: "KeyB",
         KeyC: "KeyC",
@@ -482,7 +494,7 @@ CreateJS.KeyboardEvent = (_b = class {
         Pause: "Pause",
         ContextMenu: "ContextMenu",
     },
-    _b.Handler = class {
+    _c.Handler = class {
         constructor() {
             this.heldKeys = new Set();
             this.callbacks = new Map();
@@ -521,7 +533,7 @@ CreateJS.KeyboardEvent = (_b = class {
             this.callbacks.delete(key);
         }
     },
-    _b);
+    _c);
 CreateJS.Point = class {
     constructor(x, y) {
         this._fillColor = "white";
@@ -599,7 +611,7 @@ CreateJS.Line = class {
         return new CreateJS.Vec2(this.x2 - this.x1, this.y2 - this.y1);
     }
 };
-CreateJS.Shape = (_c = class {
+CreateJS.Shape = (_d = class {
         constructor(x, y) {
             this._fillColor = "white";
             this._strokeColor = "white";
@@ -638,14 +650,14 @@ CreateJS.Shape = (_c = class {
             throw new Error("Function not implemented");
         }
     },
-    __setFunctionName(_c, "Shape"),
-    _c.Anchors = {
+    __setFunctionName(_d, "Shape"),
+    _d.Anchors = {
         TopLeft: "TopLeft",
         TopRight: "TopRight",
         BottomRight: "BottomRight",
         BottomLeft: "BottomLeft"
     },
-    _c);
+    _d);
 CreateJS.ConvexPolygon = class extends CreateJS.Shape {
     constructor(x, y, ...args) {
         super(x, y);
@@ -758,6 +770,15 @@ CreateJS.ConvexPolygon = class extends CreateJS.Shape {
         }
         return Math.abs(total) / 2;
     }
+    perimeter() {
+        let total = 0;
+        for (let i = 0; i < this.points.length; i++) {
+            const current = this.points[i];
+            const next = this.points[(i + 1) % this.points.length];
+            total += current.distanceTo(next);
+        }
+        return total;
+    }
     rotate(angle, origin = this.center()) {
         const cos = Math.cos(angle);
         const sin = Math.sin(angle);
@@ -820,11 +841,71 @@ CreateJS.ConvexPolygon = class extends CreateJS.Shape {
         const axesA = this.getNormals();
         const axesB = other.getNormals();
         const axes = axesA.concat(axesB);
+        let minOverlap = Infinity;
+        let smallestAxis = null;
         for (const axis of axes) {
             const projA = this.project(axis);
             const projB = other.project(axis);
             if (!(projA.max >= projB.min && projB.max >= projA.min)) {
-                return false;
+                return {
+                    collided: false
+                };
+            }
+            const overlap = Math.min(projA.max, projB.max) - Math.max(projA.min, projB.min);
+            if (overlap < minOverlap) {
+                minOverlap = overlap;
+                smallestAxis = axis;
+            }
+        }
+        if (!smallestAxis) {
+            return { collided: false };
+        }
+        const centerDelta = other.center().sub(this.center());
+        if (centerDelta.dot(smallestAxis) < 0) {
+            smallestAxis = smallestAxis.mul(-1);
+        }
+        const contactPoints = [];
+        for (const vertex of this.getVerticesPositions()) {
+            if (other.containsPoint(vertex)) {
+                contactPoints.push(vertex);
+            }
+        }
+        for (const vertex of other.getVerticesPositions()) {
+            if (this.containsPoint(vertex)) {
+                contactPoints.push(vertex);
+            }
+        }
+        let contactPoint;
+        if (contactPoints.length > 0) {
+            const sum = contactPoints.reduce((acc, v) => acc.add(v), new CreateJS.Vec2(0, 0));
+            contactPoint = sum.mul(1 / contactPoints.length);
+        }
+        else {
+            contactPoint = this.center().add(other.center()).mul(0.5);
+        }
+        return {
+            collided: true,
+            normal: smallestAxis.normalize(),
+            depth: minOverlap,
+            contactPoint: contactPoint
+        };
+    }
+    containsPoint(point) {
+        const vertices = this.getVerticesPositions();
+        let sign = 0;
+        for (let i = 0; i < vertices.length; i++) {
+            const v0 = vertices[i];
+            const v1 = vertices[(i + 1) % vertices.length];
+            const edge = v1.sub(v0);
+            const toPoint = point.sub(v0);
+            const cross = edge.cross(toPoint);
+            if (cross !== 0) {
+                if (sign === 0) {
+                    sign = Math.sign(cross);
+                }
+                else if (Math.sign(cross) !== sign) {
+                    return false;
+                }
             }
         }
         return true;
@@ -889,73 +970,212 @@ CreateJS.ConvexPolygon = class extends CreateJS.Shape {
         return new CreateJS.ConvexPolygon(hullPoints[0].x, hullPoints[0].y, ...hullPoints.map(point => point.clone().sub(hullPoints[0])));
     }
 };
-// static Physics = class {
-//     static PhysicsBody = class extends CreateJS.ConvexPolygon {
-//         static: boolean;
-//         mass: number = 1;
-//         velocity: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
-//         acceleration: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
-//         damping: number = 0;
-//         angularVelocity: number = 0;
-//         angularAcceleration: number = 0;
-//         constructor(isStatic: boolean, x: number, y: number, ...args: CreateJS.Vec2[]) {
-//             super(x, y, ...args);
-//             this.static = isStatic;
-//         }
-//         setMass(mass: number): CreateJS.Physics.PhysicsBody {
-//             this.mass = mass;
-//             return this;
-//         }
-//         setDamping(damping: number): CreateJS.Physics.PhysicsBody {
-//             this.damping = damping;
-//             return this;
-//         }
-//         applyForce(force: CreateJS.Vec2): CreateJS.Physics.PhysicsBody {
-//             const acceleration = force.clone().div(this.mass);
-//             this.acceleration.add(acceleration);
-//             return this;
-//         }
-//         applyTorque() {
-//         }
-//         integrate(dt: number): CreateJS.Physics.PhysicsBody {
-//             this.velocity.add(this.acceleration.clone().mul(dt));
-//             this.velocity.mul(1 - this.damping);
-//             if (this.velocity.length() < 0.001) {
-//                 this.velocity.set(0, 0);
-//             }
-//             this.position.add(this.velocity.clone().mul(dt));
-//             this.acceleration.set(0, 0);
-//             return this;
-//         }
-//     }
-//     private _bodies: CreateJS.Physics.PhysicsBody[] = [];
-//     gravity: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
-//     addBody(...bodies: CreateJS.Physics.PhysicsBody[]): CreateJS.Physics {
-//         this._bodies.push(...bodies);
-//         return this;
-//     }
-//     removeBody(index: number, deleteCount: number = 0): CreateJS.Physics {
-//         this._bodies.splice(index, deleteCount);
-//         return this;
-//     }
-//     clearBodies(): CreateJS.Physics {
-//         this._bodies.length = 0;
-//         return this;
-//     }
-//     setGravity(force: number): CreateJS.Physics {
-//         this.gravity.set(0, force);
-//         return this;
-//     }
-//     update(dt: number): void {
-//         this._bodies.forEach(body => {
-//             if (!body.static) {
-//                 body.applyForce(this.gravity.clone().mul(body.mass));
-//                 body.integrate(dt);
-//             }
-//         });
-//     }
-// }
-CreateJS.TimeHandler = (_d = class {
+CreateJS.Physics = (_e = class {
+        constructor() {
+            this._bodies = [];
+            this.gravity = new CreateJS.Vec2(0, 0);
+            this.airDensity = 1.225;
+        }
+        addBody(...bodies) {
+            this._bodies.push(...bodies);
+            return this;
+        }
+        removeBody(index, deleteCount = 0) {
+            this._bodies.splice(index, deleteCount);
+            return this;
+        }
+        clearBodies() {
+            this._bodies.length = 0;
+            return this;
+        }
+        setGravity(force) {
+            this.gravity.set(0, force);
+            return this;
+        }
+        setAirDensity(density) {
+            this.airDensity = density;
+        }
+        penetrationResolution(A, B, collisionInfo) {
+            if (!collisionInfo.collided)
+                return;
+            const correction = collisionInfo.normal.clone().mul(collisionInfo.depth / (A.inverseMass + B.inverseMass));
+            A.position.sub(correction.mul(A.inverseMass));
+            B.position.add(correction.mul(B.inverseMass));
+        }
+        resolveVelocity(A, B, collisionInfo) {
+            if (!collisionInfo.collided)
+                return;
+            const relativeVelocity = B.velocity.clone().sub(A.velocity);
+            const velAlongNormal = relativeVelocity.dot(collisionInfo.normal);
+            if (velAlongNormal > 0)
+                return;
+            const elasticity = Math.min(A.elasticity, B.elasticity);
+            const impulseMag = -(1 + elasticity) * velAlongNormal / (A.inverseMass + B.inverseMass);
+            const impulse = collisionInfo.normal.clone().mul(impulseMag);
+            A.velocity.sub(impulse.mul(A.inverseMass));
+            B.velocity.add(impulse.mul(B.inverseMass));
+        }
+        update(dt) {
+            this._bodies.forEach(body => {
+                if (!body.static) {
+                    body.applyForce(this.gravity.clone().mul(body.mass));
+                    body.applyAirDrag(this.airDensity);
+                }
+                this._bodies.forEach((body2) => {
+                    if (body === body2)
+                        return;
+                    const collisionInfo = body.intersectsWith(body2);
+                    if (collisionInfo.collided) {
+                        this.penetrationResolution(body, body2, collisionInfo);
+                        this.resolveVelocity(body, body2, collisionInfo);
+                        body.applyAngularVelocity(body2, collisionInfo, dt);
+                    }
+                });
+                if (!body.static) {
+                    body.integrate(dt);
+                }
+            });
+        }
+    },
+    __setFunctionName(_e, "Physics"),
+    _e.PhysicsBody = class extends CreateJS.ConvexPolygon {
+        constructor(isStatic, x, y, ...args) {
+            let xNum;
+            let yNum;
+            let points = [];
+            let polygon;
+            if (typeof x === "object") {
+                xNum = x.x;
+                yNum = x.y;
+                points = x.points;
+                polygon = x;
+            }
+            else {
+                xNum = x;
+                yNum = y;
+                points = args;
+            }
+            super(xNum, yNum, ...points);
+            this.mass = 1;
+            this.velocity = new CreateJS.Vec2(0, 0);
+            this.acceleration = new CreateJS.Vec2(0, 0);
+            this.elasticity = 0.5;
+            this.dragArea = 1;
+            this.dragCoefficient = 1.2;
+            this.angularDamping = 0.98;
+            this.angularVelocity = 0;
+            if (polygon) {
+                Object.assign(this, polygon);
+            }
+            this.static = isStatic;
+            if (this.static)
+                this.mass = 0;
+            // Moment of inertia
+            this.momentOfInertia = this.computeMomentOfInertia();
+            // Find dragCoefficient
+            const compactness = this.area() / this.perimeter();
+            this.dragCoefficient = CreateJS.Math.clamp(compactness, 0.2, 1.3);
+        }
+        get inverseMass() {
+            return this.mass === 0 ? 0 : 1 / this.mass;
+        }
+        setDragArea() {
+            if (this.velocity.isZero())
+                return;
+            const dragDirection = this.velocity.clone().normalize();
+            const dragNormal = dragDirection.clone().perpendicular();
+            let min = Infinity;
+            let max = -Infinity;
+            for (const vertex of this.getVerticesPositions()) {
+                const projection = vertex.dot(dragNormal);
+                min = Math.min(min, projection);
+                max = Math.max(max, projection);
+            }
+            const projectedLength = max - min;
+            this.dragArea = projectedLength * CreateJS.Math.METER;
+        }
+        setMass(mass) {
+            if (this.static)
+                return this;
+            this.mass = mass;
+            return this;
+        }
+        setElasticity(elasticity) {
+            this.elasticity = elasticity;
+            return this;
+        }
+        applyForce(force) {
+            const acceleration = force.clone().div(this.mass);
+            this.acceleration.add(acceleration);
+            return this;
+        }
+        applyAngularVelocity(body, collisionInfo, dt) {
+            if (!collisionInfo.collided)
+                return this;
+            const contactPoint = collisionInfo.contactPoint;
+            const r = contactPoint.clone().sub(this.center()).mul(CreateJS.Math.METER);
+            // force
+            const relativeVel = body.velocity.clone().sub(this.velocity);
+            const velAlongNormal = relativeVel.dot(collisionInfo.normal);
+            const relativeVelocity = body.velocity.clone().sub(this.velocity);
+            const separatingVelocity = relativeVelocity.dot(collisionInfo.normal);
+            const elasticity = Math.min(this.elasticity, body.elasticity);
+            const impulseMag = -(1 + elasticity) * separatingVelocity / (this.inverseMass + body.inverseMass);
+            const impulse = collisionInfo.normal.clone().mul(impulseMag * CreateJS.Math.METER);
+            if (velAlongNormal <= 0) {
+                const torque = r.cross(impulse);
+                const angularImpulse = torque * dt;
+                this.angularVelocity += angularImpulse / this.momentOfInertia;
+            }
+            // rotational friction
+            const rotationalFrictionCoefficient = 0.15;
+            const normalForce = Math.abs(impulseMag * CreateJS.Math.METER);
+            const frictionTorque = -Math.sign(this.angularVelocity) * rotationalFrictionCoefficient * normalForce * r.length();
+            const angularFrictionImpulse = frictionTorque * dt;
+            this.angularVelocity += angularFrictionImpulse / this.momentOfInertia;
+            return this;
+        }
+        applyAirDrag(airDensity = 1.225) {
+            const speed = this.velocity.length();
+            if (speed === 0)
+                return;
+            this.setDragArea();
+            const dragMagnitude = 0.5 * this.dragCoefficient * airDensity * this.dragArea * speed * speed;
+            const dragDirection = this.velocity.clone().normalize().mul(-1);
+            const dragForce = dragDirection.clone().mul(dragMagnitude);
+            this.applyForce(dragForce);
+        }
+        computeMomentOfInertia() {
+            const vertices = this.points.map(p => p.clone().mul(CreateJS.Math.METER));
+            let numerator = 0;
+            let denominator = 0;
+            for (let i = 0; i < vertices.length; i++) {
+                const v0 = vertices[i];
+                const v1 = vertices[(i + 1) % vertices.length];
+                const cross = Math.abs(v0.cross(v1));
+                const dot = v0.dot(v0) + v0.dot(v1) + v1.dot(v1);
+                numerator += cross * dot;
+                denominator += cross;
+            }
+            return (this.mass / 6) * (numerator / denominator) * (Math.pow((1 / CreateJS.Math.METER), 2));
+        }
+        integrate(dt) {
+            this.velocity.add(this.acceleration.clone().mul(dt));
+            if (this.velocity.length() < 0.01) {
+                this.velocity.set(0, 0);
+            }
+            this.position.add(this.velocity.clone().mul(dt));
+            this.angularVelocity *= this.angularDamping;
+            if (this.angularVelocity < 0.001) {
+                this.angularVelocity = 0;
+            }
+            this.rotate(this.angularVelocity);
+            this.acceleration.set(0, 0);
+            return this;
+        }
+    },
+    _e);
+CreateJS.TimeHandler = (_f = class {
         static wait(ms) {
             return new Promise((resolve, reject) => {
                 setTimeout(() => {
@@ -997,9 +1217,9 @@ CreateJS.TimeHandler = (_d = class {
             CreateJS.TimeHandler._pause = false;
         }
     },
-    __setFunctionName(_d, "TimeHandler"),
-    _d.timeBefore = 0,
-    _d._stop = false,
-    _d._pause = false,
-    _d);
+    __setFunctionName(_f, "TimeHandler"),
+    _f.timeBefore = 0,
+    _f._stop = false,
+    _f._pause = false,
+    _f);
 export default CreateJS;

@@ -241,12 +241,26 @@ export class CreateJS {
     }
 
     static Math = class {
+        static METER = 1 / 100;
+
         static degToRad(degrees: number): number {
             return degrees * Math.PI / 180;
         }
 
         static radToDeg(radians: number): number {
             return radians * 180 / Math.PI;
+        }
+
+        static clamp(num: number, min: number, max: number): number {
+            return num < min ? min : (num > max ? max : num);
+        }
+
+        static pxToMeter(px: number): number {
+            return px * CreateJS.Math.METER;
+        }
+
+        static meterToPx(meter: number): number {
+            return meter / CreateJS.Math.METER;
         }
     }
     
@@ -548,11 +562,11 @@ export class CreateJS {
                 return this;
             }
 
-            register(key: Key, callback: () => void): void {
+            register(key: CreateJS.Key, callback: () => void): void {
                 this.callbacks.set(key, callback);
             }
 
-            unregister(key: Key): void {
+            unregister(key: CreateJS.Key): void {
                 this.callbacks.delete(key);
             }
         }
@@ -836,6 +850,17 @@ export class CreateJS {
             return Math.abs(total) / 2;
         }
 
+        perimeter(): number {
+            let total = 0;
+            for (let i = 0; i < this.points.length; i++) {
+                const current = this.points[i];
+                const next = this.points[(i + 1) % this.points.length];
+
+                total += current.distanceTo(next);
+            }
+            return total;
+        }
+
         rotate(angle: number, origin: CreateJS.Vec2 = this.center()): CreateJS.ConvexPolygon {
             const cos = Math.cos(angle);
             const sin = Math.sin(angle);
@@ -912,20 +937,93 @@ export class CreateJS {
             return true;
         }
         
-        intersectsWith(other: CreateJS.ConvexPolygon): boolean {
+        intersectsWith(other: CreateJS.ConvexPolygon): CreateJS.SATCollisionInfo {
             const axesA = this.getNormals();
             const axesB = other.getNormals();
             const axes = axesA.concat(axesB);
+
+            let minOverlap = Infinity;
+            let smallestAxis: CreateJS.Vec2 | null = null;
             
             for (const axis of axes) {
                 const projA = this.project(axis);
                 const projB = other.project(axis);
                 
                 if (!(projA.max >= projB.min && projB.max >= projA.min)) {
-                    return false;
+                    return {
+                        collided: false
+                    };
+                }
+
+                const overlap = Math.min(projA.max, projB.max) - Math.max(projA.min, projB.min);
+
+                if (overlap < minOverlap) {
+                    minOverlap = overlap;
+                    smallestAxis = axis;
                 }
             }
+
+            if (!smallestAxis) {
+                return { collided: false };
+            }
             
+            const centerDelta = other.center().sub(this.center());
+            if (centerDelta.dot(smallestAxis) < 0) {
+                smallestAxis = smallestAxis.mul(-1);
+            }
+
+            const contactPoints: CreateJS.Vec2[] = [];
+
+            for (const vertex of this.getVerticesPositions()) {
+                if (other.containsPoint(vertex)) {
+                    contactPoints.push(vertex);
+                }
+            }
+
+            for (const vertex of other.getVerticesPositions()) {
+                if (this.containsPoint(vertex)) {
+                    contactPoints.push(vertex);
+                }
+            }
+
+            let contactPoint: CreateJS.Vec2;
+            if (contactPoints.length > 0) {
+                const sum = contactPoints.reduce((acc, v) => acc.add(v), new CreateJS.Vec2(0, 0));
+                contactPoint = sum.mul(1 / contactPoints.length);
+            } else {
+                contactPoint = this.center().add(other.center()).mul(0.5);
+            }
+
+            return {
+                collided: true,
+                normal: smallestAxis.normalize(),
+                depth: minOverlap,
+                contactPoint: contactPoint
+            };
+        }
+
+        containsPoint(point: CreateJS.Vec2): boolean {
+            const vertices = this.getVerticesPositions();
+            let sign = 0;
+
+            for (let i = 0; i < vertices.length; i++) {
+                const v0 = vertices[i];
+                const v1 = vertices[(i + 1) % vertices.length];
+
+                const edge = v1.sub(v0);
+                const toPoint = point.sub(v0);
+
+                const cross = edge.cross(toPoint);
+
+                if (cross !== 0) {
+                    if (sign === 0) {
+                        sign = Math.sign(cross);
+                    } else if (Math.sign(cross) !== sign) {
+                        return false;
+                    }
+                }
+            }
+
             return true;
         }
 
@@ -1005,86 +1103,266 @@ export class CreateJS {
         }
     }
 
-    // static Physics = class {
-    //     static PhysicsBody = class extends CreateJS.ConvexPolygon {
-    //         static: boolean;
-    //         mass: number = 1;
-    //         velocity: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
-    //         acceleration: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
-    //         damping: number = 0;
-    //         angularVelocity: number = 0;
-    //         angularAcceleration: number = 0;
+    static Physics = class {
+        static PhysicsBody = class extends CreateJS.ConvexPolygon {
+            static: boolean;
+            mass: number = 1;
+            velocity: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
+            acceleration: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
+            elasticity: number = 0.5;
+            dragArea: number = 1;
+            dragCoefficient: number = 1.2;
+            angularDamping: number = 0.98;
+            angularVelocity: number = 0;
+            momentOfInertia: number;
 
-    //         constructor(isStatic: boolean, x: number, y: number, ...args: CreateJS.Vec2[]) {
-    //             super(x, y, ...args);
+            constructor(isStatic: boolean, polygon: CreateJS.ConvexPolygon);
+            constructor(isStatic: boolean, x: number, y: number, ...args: CreateJS.Vec2[]);
+            constructor(isStatic: boolean, x: number | CreateJS.ConvexPolygon, y?: number, ...args: CreateJS.Vec2[]) {
+                let xNum;
+                let yNum;
+                let points: CreateJS.Vec2[] = [];
 
-    //             this.static = isStatic;
-    //         }
+                let polygon: CreateJS.ConvexPolygon | undefined;
+                if (typeof x === "object") {
+                    xNum = x.x;
+                    yNum = x.y;
+                    points = x.points;
 
-    //         setMass(mass: number): CreateJS.Physics.PhysicsBody {
-    //             this.mass = mass;
-    //             return this;
-    //         }
+                    polygon = x;
+                } else {
+                    xNum = x;
+                    yNum = y as number;
+                    points = args;
+                }
+                
+                super(xNum, yNum, ...points);
+                
+                if (polygon) {
+                    Object.assign(this, polygon);
+                }
 
-    //         setDamping(damping: number): CreateJS.Physics.PhysicsBody {
-    //             this.damping = damping;
-    //             return this;
-    //         }
+                this.static = isStatic;
+                if (this.static) this.mass = 0;
+
+                // Moment of inertia
+                this.momentOfInertia = this.computeMomentOfInertia();
+
+                // Find dragCoefficient
+                const compactness = this.area() / this.perimeter();
+                this.dragCoefficient = CreateJS.Math.clamp(compactness, 0.2, 1.3);
+            }
+
+            get inverseMass() {
+                return this.mass === 0 ? 0 : 1 / this.mass;
+            }
+
+            setDragArea() {
+                if (this.velocity.isZero()) return;
+
+                const dragDirection = this.velocity.clone().normalize();
+                const dragNormal = dragDirection.clone().perpendicular();
+
+                let min = Infinity;
+                let max = -Infinity;
+
+                for (const vertex of this.getVerticesPositions()) {
+                    const projection = vertex.dot(dragNormal);
+                    min = Math.min(min, projection);
+                    max = Math.max(max, projection);
+                }
+
+                const projectedLength = max - min;
+                this.dragArea = projectedLength * CreateJS.Math.METER;
+            }
+
+            setMass(mass: number): CreateJS.Physics.PhysicsBody {
+                if (this.static) return this;
+
+                this.mass = mass;
+                return this;
+            }
+
+            setElasticity(elasticity: number): CreateJS.Physics.PhysicsBody {
+                this.elasticity = elasticity;
+                return this;
+            }
             
-    //         applyForce(force: CreateJS.Vec2): CreateJS.Physics.PhysicsBody {
-    //             const acceleration = force.clone().div(this.mass);
-    //             this.acceleration.add(acceleration);
-    //             return this;
-    //         }
+            applyForce(force: CreateJS.Vec2): CreateJS.Physics.PhysicsBody {
+                const acceleration = force.clone().div(this.mass);
+                this.acceleration.add(acceleration);
+                return this;
+            }
 
-    //         applyTorque() {
+            applyAngularVelocity(body: CreateJS.Physics.PhysicsBody, collisionInfo: CreateJS.SATCollisionInfo, dt: number): CreateJS.Physics.PhysicsBody {
+                if (!collisionInfo.collided) return this;
 
-    //         }
+                const contactPoint = collisionInfo.contactPoint;
+                const r = contactPoint.clone().sub(this.center()).mul(CreateJS.Math.METER);
 
-    //         integrate(dt: number): CreateJS.Physics.PhysicsBody {
-    //             this.velocity.add(this.acceleration.clone().mul(dt));
-    //             this.velocity.mul(1 - this.damping);
-    //             if (this.velocity.length() < 0.001) {
-    //                 this.velocity.set(0, 0);
-    //             }
-    //             this.position.add(this.velocity.clone().mul(dt));
-    //             this.acceleration.set(0, 0);
-    //             return this;
-    //         }
-    //     }
+                // force
+                const relativeVel = body.velocity.clone().sub(this.velocity);
+                const velAlongNormal = relativeVel.dot(collisionInfo.normal);
 
-    //     private _bodies: CreateJS.Physics.PhysicsBody[] = [];
-    //     gravity: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
+                const relativeVelocity = body.velocity.clone().sub(this.velocity);
+                const separatingVelocity = relativeVelocity.dot(collisionInfo.normal);
 
-    //     addBody(...bodies: CreateJS.Physics.PhysicsBody[]): CreateJS.Physics {
-    //         this._bodies.push(...bodies);
-    //         return this;
-    //     }
+                const elasticity = Math.min(this.elasticity, body.elasticity);
+                const impulseMag = -(1 + elasticity) * separatingVelocity / (this.inverseMass + body.inverseMass);
+                const impulse = collisionInfo.normal.clone().mul(impulseMag * CreateJS.Math.METER);
 
-    //     removeBody(index: number, deleteCount: number = 0): CreateJS.Physics {
-    //         this._bodies.splice(index, deleteCount);
-    //         return this;
-    //     }
+                if (velAlongNormal <= 0) {
+                    const torque = r.cross(impulse);
+                    const angularImpulse = torque * dt;
+                    this.angularVelocity += angularImpulse / this.momentOfInertia;
+                }
+                
 
-    //     clearBodies(): CreateJS.Physics {
-    //         this._bodies.length = 0;
-    //         return this;
-    //     }
+                // rotational friction
+                const rotationalFrictionCoefficient = 0.15;
+                const normalForce = Math.abs(impulseMag * CreateJS.Math.METER);
+                const frictionTorque = -Math.sign(this.angularVelocity) * rotationalFrictionCoefficient * normalForce * r.length();
 
-    //     setGravity(force: number): CreateJS.Physics {
-    //         this.gravity.set(0, force);
-    //         return this;
-    //     }
+                const angularFrictionImpulse = frictionTorque * dt;
+                this.angularVelocity += angularFrictionImpulse / this.momentOfInertia;
 
-    //     update(dt: number): void {
-    //         this._bodies.forEach(body => {
-    //             if (!body.static) {
-    //                 body.applyForce(this.gravity.clone().mul(body.mass));
-    //                 body.integrate(dt);
-    //             }
-    //         });
-    //     }
-    // }
+                return this;
+            }
+            
+            applyAirDrag(airDensity: number = 1.225): void {
+                const speed = this.velocity.length();
+
+                if (speed === 0) return;
+
+                this.setDragArea();
+
+                const dragMagnitude = 0.5 * this.dragCoefficient * airDensity * this.dragArea * speed * speed;
+
+                const dragDirection = this.velocity.clone().normalize().mul(-1);
+                const dragForce = dragDirection.clone().mul(dragMagnitude);
+
+                this.applyForce(dragForce);
+            }
+
+            computeMomentOfInertia(): number {
+                const vertices = this.points.map(p => p.clone().mul(CreateJS.Math.METER));
+
+                let numerator = 0;
+                let denominator = 0;
+
+                for (let i = 0; i < vertices.length; i++) {
+                    const v0 = vertices[i];
+                    const v1 = vertices[(i + 1) % vertices.length];
+
+                    const cross = Math.abs(v0.cross(v1));
+                    const dot = v0.dot(v0) + v0.dot(v1) + v1.dot(v1);
+
+                    numerator += cross * dot;
+                    denominator += cross;
+                }
+
+                return (this.mass / 6) * (numerator / denominator) * ((1 / CreateJS.Math.METER) ** 2);
+            }
+
+            integrate(dt: number): CreateJS.Physics.PhysicsBody {
+                this.velocity.add(this.acceleration.clone().mul(dt));
+                if (this.velocity.length() < 0.01) {
+                    this.velocity.set(0, 0);
+                }
+                this.position.add(this.velocity.clone().mul(dt));
+
+                this.angularVelocity *= this.angularDamping;
+                if (this.angularVelocity < 0.001) {
+                    this.angularVelocity = 0;
+                }
+                this.rotate(this.angularVelocity);
+
+                this.acceleration.set(0, 0);
+
+                return this;
+            }
+        }
+
+        private _bodies: CreateJS.Physics.PhysicsBody[] = [];
+        private gravity: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
+        private airDensity: number = 1.225;
+
+        addBody(...bodies: CreateJS.Physics.PhysicsBody[]): CreateJS.Physics {
+            this._bodies.push(...bodies);
+            return this;
+        }
+
+        removeBody(index: number, deleteCount: number = 0): CreateJS.Physics {
+            this._bodies.splice(index, deleteCount);
+            return this;
+        }
+
+        clearBodies(): CreateJS.Physics {
+            this._bodies.length = 0;
+            return this;
+        }
+
+        setGravity(force: number): CreateJS.Physics {
+            this.gravity.set(0, force);
+            return this;
+        }
+
+        setAirDensity(density: number) {
+            this.airDensity = density;
+        }
+
+        penetrationResolution(A: CreateJS.Physics.PhysicsBody, B: CreateJS.Physics.PhysicsBody, collisionInfo: CreateJS.SATCollisionInfo): void {
+            if (!collisionInfo.collided) return;
+
+            const correction = collisionInfo.normal.clone().mul(collisionInfo.depth / (A.inverseMass + B.inverseMass));
+            A.position.sub(correction.mul(A.inverseMass));
+            B.position.add(correction.mul(B.inverseMass));
+        }
+
+        resolveVelocity(A: CreateJS.Physics.PhysicsBody, B: CreateJS.Physics.PhysicsBody, collisionInfo: CreateJS.SATCollisionInfo): void {
+            if (!collisionInfo.collided) return;
+
+            const relativeVelocity = B.velocity.clone().sub(A.velocity);
+            const velAlongNormal = relativeVelocity.dot(collisionInfo.normal);
+
+            if (velAlongNormal > 0) return;
+
+            const elasticity = Math.min(A.elasticity, B.elasticity);
+
+            const impulseMag = -(1 + elasticity) * velAlongNormal / (A.inverseMass + B.inverseMass);
+
+            const impulse = collisionInfo.normal.clone().mul(impulseMag);
+
+            A.velocity.sub(impulse.mul(A.inverseMass));
+            B.velocity.add(impulse.mul(B.inverseMass));
+        }
+
+        update(dt: number): void {
+            this._bodies.forEach(body => {
+                if (!body.static) {
+                    body.applyForce(this.gravity.clone().mul(body.mass));
+
+                    body.applyAirDrag(this.airDensity);
+                }
+
+                this._bodies.forEach((body2) => {
+                    if (body === body2) return;
+
+                    const collisionInfo = body.intersectsWith(body2);
+
+                    if (collisionInfo.collided) {
+                        this.penetrationResolution(body, body2, collisionInfo);
+                        this.resolveVelocity(body, body2, collisionInfo);
+                        body.applyAngularVelocity(body2, collisionInfo, dt);
+                    }
+                });
+
+                if (!body.static) {
+                    body.integrate(dt);
+                }
+            });
+        }
+    }
 
     static TimeHandler = class {
         private static timeBefore: number = 0;
@@ -1182,16 +1460,24 @@ export class CreateJS {
     }
 }
 
-
-export type Key = string;
-export type Anchor = string;
 export namespace CreateJS {
+    export type Key = string;
+    export type SATCollisionInfo = {
+        collided: true;
+    } & {
+        normal: CreateJS.Vec2;
+        depth: number;
+        contactPoint: CreateJS.Vec2;
+    } | {
+        collided: false;
+    };
+
     export type Shape = InstanceType<typeof CreateJS.Shape>;
     export type Point = InstanceType<typeof CreateJS.Point>;
     export type Line = InstanceType<typeof CreateJS.Line>;
     export type ConvexPolygon = InstanceType<typeof CreateJS.ConvexPolygon>;
     export type Vec2 = InstanceType<typeof CreateJS.Vec2>;
-    // export type Physics = InstanceType<typeof CreateJS.Physics>;
+    export type Physics = InstanceType<typeof CreateJS.Physics>;
     export type KeyboardEvent = InstanceType<typeof CreateJS.KeyboardEvent>;
     export type TouchEvent = InstanceType<typeof CreateJS.TouchEvent>;
     export type TimeHandler = InstanceType<typeof CreateJS.TimeHandler>;
@@ -1213,9 +1499,9 @@ export namespace CreateJS {
         export type Anchors = typeof CreateJS.Shape.Anchors;
     }
 
-    // export namespace Physics {
-    //     export type PhysicsBody = InstanceType<typeof CreateJS.Physics.PhysicsBody>;
-    // }
+    export namespace Physics {
+        export type PhysicsBody = InstanceType<typeof CreateJS.Physics.PhysicsBody>;
+    }
 }
 
 export default CreateJS;
