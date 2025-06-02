@@ -7,47 +7,47 @@ if (canvas) {
     game.init()
         .backgroundColor("black")
         .resizeCanvas(innerWidth, innerHeight);
-<<<<<<< HEAD
-    const rect = CreateJS.ConvexPolygon.createRect(100, 100, 100, 100).fillColor("skyblue").fill();
-    const rectPB = new CreateJS.Physics.PhysicsBody(false, rect);
-    rectPB.setMass(1000);
-    const colRect = CreateJS.ConvexPolygon.createRect(30, 500, 100, 100).fillColor("red").fill();
-    const colRectPB = new CreateJS.Physics.PhysicsBody(true, colRect);
-    const base = CreateJS.ConvexPolygon.createRect(0, innerHeight - 100, innerWidth, 100).fillColor("white").fill();
-    const basePB = new CreateJS.Physics.PhysicsBody(true, base);
+    const platform = CreateJS.ConvexPolygon.createRect(0, innerHeight - 100, innerWidth, 100).fillColor(CreateJS.Colors.White).fill();
+    const platformPB = new CreateJS.Physics.Rigidbody(true, platform);
+    const rect = CreateJS.ConvexPolygon.createRect(100, 100, 100, 100).fillColor(CreateJS.Colors.SkyBlue).fill();
+    const rectPB = new CreateJS.Physics.Rigidbody(false, rect);
+    rectPB.setMass(10).setElasticity(0);
+    const rigidbodies = [];
+    const randomBody = CreateJS.Math.random(0, 15);
+    for (let i = 0; i < 15; i++) {
+        const randomVec = new CreateJS.Vec2(CreateJS.Math.random(100, innerWidth - 100), CreateJS.Math.random(100, innerHeight - 100));
+        const randomColor = CreateJS.Colors.FromHSLA(CreateJS.Math.random(0, 255), CreateJS.Math.random(50, 100), 50);
+        const rect = CreateJS.ConvexPolygon.createRect(randomVec.x, randomVec.y, 75, 75).fillColor(randomColor).fill();
+        const rectPB = new CreateJS.Physics.Rigidbody(i === randomBody, rect);
+        rectPB.setMass(100);
+        rigidbodies.push(rectPB);
+    }
     const physics = new CreateJS.Physics();
-    physics.addBody(rectPB, basePB, colRectPB);
-    physics.setGravity(9.81 * CreateJS.Math.METER);
-    CreateJS.TimeHandler.tick(fps, (currentTick, dt) => {
-        physics.update(dt);
-        game.render([rectPB, basePB, colRectPB]);
-=======
-    const rect = CreateJS.ConvexPolygon.createRect(100, 100, 100, 100).fill();
-    const circle = CreateJS.ConvexPolygon.createCircle(500, 500, 100, 18).strokeWidth(3).stroke();
+    physics.addBody(rectPB, ...rigidbodies, platformPB);
+    physics.setGravity(1);
     const keyboardHandler = new CreateJS.KeyboardEvent.Handler();
     keyboardHandler.handle(fps);
+    const force = new CreateJS.Vec2();
+    keyboardHandler.register(CreateJS.KeyboardEvent.Key.KeyW, () => {
+        physics.applyJumpTo(rectPB, 5, (current, other) => current.isOnTopOf(other));
+    });
+    keyboardHandler.register(CreateJS.KeyboardEvent.Key.KeyA, () => {
+        force.x = -1;
+    });
+    keyboardHandler.register(CreateJS.KeyboardEvent.Key.KeyD, () => {
+        force.x = 1;
+    });
     keyboardHandler.register(CreateJS.KeyboardEvent.Key.ArrowLeft, () => {
-        circle.rotate(CreateJS.Math.degToRad(-1));
+        rectPB.rotate(CreateJS.Math.degToRad(-1));
     });
     keyboardHandler.register(CreateJS.KeyboardEvent.Key.ArrowRight, () => {
-        circle.rotate(CreateJS.Math.degToRad(1));
-    });
-    keyboardHandler.register(CreateJS.KeyboardEvent.Key.ArrowUp, () => {
-        circle.scaleFrom(1.01);
-    });
-    keyboardHandler.register(CreateJS.KeyboardEvent.Key.ArrowDown, () => {
-        circle.scaleFrom(0.99);
+        rectPB.rotate(CreateJS.Math.degToRad(1));
     });
     CreateJS.TimeHandler.tick(fps, (currentTick, dt) => {
-        if (circle.intersectsWith(rect)) {
-            rect.fillColor("yellow");
-            circle.strokeColor("lime");
-        }
-        else {
-            rect.fillColor("skyblue");
-            circle.strokeColor("red");
-        }
-        game.render([rect, circle]);
->>>>>>> 182f7492731947a920694ec2480db25b03602dab
+        const newForce = force.isZero() ? new CreateJS.Vec2() : force.clone().normalize().mul(new CreateJS.Vec2(4, rectPB.mass * 7));
+        rectPB.applyForce(newForce);
+        force.zero();
+        physics.update(dt);
+        game.render(rectPB, ...rigidbodies, platformPB);
     });
 }

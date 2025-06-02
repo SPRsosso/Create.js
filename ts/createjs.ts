@@ -241,8 +241,6 @@ export class CreateJS {
     }
 
     static Math = class {
-        static METER = 1 / 100;
-
         static degToRad(degrees: number): number {
             return degrees * Math.PI / 180;
         }
@@ -255,14 +253,171 @@ export class CreateJS {
             return num < min ? min : (num > max ? max : num);
         }
 
-        static pxToMeter(px: number): number {
-            return px * CreateJS.Math.METER;
-        }
-
-        static meterToPx(meter: number): number {
-            return meter / CreateJS.Math.METER;
+        static random(min: number, max: number) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
         }
     }
+
+    static Utils = class {
+        static Keyboard = class {
+            static MoveLeft(bindedObject: any) {
+
+            }
+        }
+    }
+    
+    static Colors = {
+        AliceBlue: "aliceblue",
+        AntiqueWhite: "antiquewhite",
+        Aqua: "aqua",
+        Aquamarine: "aquamarine",
+        Azure: "azure",
+        Beige: "beige",
+        Bisque: "bisque",
+        Black: "black",
+        BlanchedAlmond: "blanchedalmond",
+        Blue: "blue",
+        BlueViolet: "blueviolet",
+        Brown: "brown",
+        BurlyWood: "burlywood",
+        CadetBlue: "cadetblue",
+        Chartreuse: "chartreuse",
+        Chocolate: "chocolate",
+        Coral: "coral",
+        CornflowerBlue: "cornflowerblue",
+        Cornsilk: "cornsilk",
+        Crimson: "crimson",
+        Cyan: "cyan",
+        DarkBlue: "darkblue",
+        DarkCyan: "darkcyan",
+        DarkGoldenRod: "darkgoldenrod",
+        DarkGray: "darkgray",
+        DarkGreen: "darkgreen",
+        DarkKhaki: "darkkhaki",
+        DarkMagenta: "darkmagenta",
+        DarkOliveGreen: "darkolivegreen",
+        DarkOrange: "darkorange",
+        DarkOrchid: "darkorchid",
+        DarkRed: "darkred",
+        DarkSalmon: "darksalmon",
+        DarkSeaGreen: "darkseagreen",
+        DarkSlateBlue: "darkslateblue",
+        DarkSlateGray: "darkslategray",
+        DarkTurquoise: "darkturquoise",
+        DarkViolet: "darkviolet",
+        DeepPink: "deeppink",
+        DeepSkyBlue: "deepskyblue",
+        DimGray: "dimgray",
+        DodgerBlue: "dodgerblue",
+        FireBrick: "firebrick",
+        FloralWhite: "floralwhite",
+        ForestGreen: "forestgreen",
+        Fuchsia: "fuchsia",
+        Gainsboro: "gainsboro",
+        GhostWhite: "ghostwhite",
+        Gold: "gold",
+        GoldenRod: "goldenrod",
+        Gray: "gray",
+        Green: "green",
+        GreenYellow: "greenyellow",
+        HoneyDew: "honeydew",
+        HotPink: "hotpink",
+        IndianRed: "indianred",
+        Indigo: "indigo",
+        Ivory: "ivory",
+        Khaki: "khaki",
+        Lavender: "lavender",
+        LavenderBlush: "lavenderblush",
+        LawnGreen: "lawngreen",
+        LemonChiffon: "lemonchiffon",
+        LightBlue: "lightblue",
+        LightCoral: "lightcoral",
+        LightCyan: "lightcyan",
+        LightGoldenRodYellow: "lightgoldenrodyellow",
+        LightGray: "lightgray",
+        LightGreen: "lightgreen",
+        LightPink: "lightpink",
+        LightSalmon: "lightsalmon",
+        LightSeaGreen: "lightseagreen",
+        LightSkyBlue: "lightskyblue",
+        LightSlateGray: "lightslategray",
+        LightSteelBlue: "lightsteelblue",
+        LightYellow: "lightyellow",
+        Lime: "lime",
+        LimeGreen: "limegreen",
+        Linen: "linen",
+        Magenta: "magenta",
+        Maroon: "maroon",
+        MediumAquaMarine: "mediumaquamarine",
+        MediumBlue: "mediumblue",
+        MediumOrchid: "mediumorchid",
+        MediumPurple: "mediumpurple",
+        MediumSeaGreen: "mediumseagreen",
+        MediumSlateBlue: "mediumslateblue",
+        MediumSpringGreen: "mediumspringgreen",
+        MediumTurquoise: "mediumturquoise",
+        MediumVioletRed: "mediumvioletred",
+        MidnightBlue: "midnightblue",
+        MintCream: "mintcream",
+        MistyRose: "mistyrose",
+        Moccasin: "moccasin",
+        NavajoWhite: "navajowhite",
+        Navy: "navy",
+        OldLace: "oldlace",
+        Olive: "olive",
+        OliveDrab: "olivedrab",
+        Orange: "orange",
+        OrangeRed: "orangered",
+        Orchid: "orchid",
+        PaleGoldenRod: "palegoldenrod",
+        PaleGreen: "palegreen",
+        PaleTurquoise: "paleturquoise",
+        PaleVioletRed: "palevioletred",
+        PapayaWhip: "papayawhip",
+        PeachPuff: "peachpuff",
+        Peru: "peru",
+        Pink: "pink",
+        Plum: "plum",
+        PowderBlue: "powderblue",
+        Purple: "purple",
+        RebeccaPurple: "rebeccapurple",
+        Red: "red",
+        RosyBrown: "rosybrown",
+        RoyalBlue: "royalblue",
+        SaddleBrown: "saddlebrown",
+        Salmon: "salmon",
+        SandyBrown: "sandybrown",
+        SeaGreen: "seagreen",
+        SeaShell: "seashell",
+        Sienna: "sienna",
+        Silver: "silver",
+        SkyBlue: "skyblue",
+        SlateBlue: "slateblue",
+        SlateGray: "slategray",
+        Snow: "snow",
+        SpringGreen: "springgreen",
+        SteelBlue: "steelblue",
+        Tan: "tan",
+        Teal: "teal",
+        Thistle: "thistle",
+        Tomato: "tomato",
+        Turquoise: "turquoise",
+        Violet: "violet",
+        Wheat: "wheat",
+        White: "white",
+        WhiteSmoke: "whitesmoke",
+        Yellow: "yellow",
+        YellowGreen: "yellowgreen",
+        FromRGBA: (red: number, green: number, blue: number, alpha: number = 1) => {
+            return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+        },
+        FromHSLA: (hue: number, saturation: number, lightness: number, alpha: number = 1) => {
+            return `hsla(${hue}, ${saturation}%, ${lightness}%, ${alpha})`;
+        },
+        FromHex: (hex: string) => {
+            return `#${hex}`;
+        }
+    };
     
     static TouchEvent = class {
         
@@ -525,10 +680,11 @@ export class CreateJS {
             ContextMenu: "ContextMenu",
         };
 
-        static Handler = class {
+        static Handler = class<ObjectType = CreateJS.Physics.Rigidbody> {
             private heldKeys: Set<string> = new Set();
-            private callbacks: Map<string, () => void> = new Map();
+            private callbacks: Map<string, ( bindedObject: ObjectType | undefined ) => void> = new Map();
             private _unhandle: boolean = false;
+            private _binded: ObjectType | undefined;
 
             constructor() {
                 addEventListener("keydown", ( event ) => {
@@ -540,6 +696,10 @@ export class CreateJS {
                 });
             }
 
+            bind(object: ObjectType): void {
+                this._binded = object;
+            }
+
             async handle(fps: number): Promise<void> {
                 while (true) {
                     if (this._unhandle) {
@@ -549,7 +709,7 @@ export class CreateJS {
 
                     for (let key of this.heldKeys) {
                         if (this.callbacks.has(key)) {
-                            this.callbacks.get(key)!();
+                            this.callbacks.get(key)!(this._binded);
                         }
                     }
 
@@ -557,12 +717,11 @@ export class CreateJS {
                 }
             }
 
-            unhandle(): CreateJS.KeyboardEvent.Handler {
+            unhandle(): void {
                 this._unhandle = true;
-                return this;
             }
 
-            register(key: CreateJS.Key, callback: () => void): void {
+            register(key: CreateJS.Key, callback: ( bindedObject: ObjectType | undefined ) => void): void {
                 this.callbacks.set(key, callback);
             }
 
@@ -1063,6 +1222,24 @@ export class CreateJS {
             return this;
         }
 
+        isOnTopOf(shape: CreateJS.ConvexPolygon): boolean {
+            const epsilon = 1e-5;
+
+            const minYA = Math.min(...this.getVerticesPositions().map(p => p.y));
+            const maxYB = Math.max(...shape.getVerticesPositions().map(p => p.y));
+
+            const minXA = Math.min(...this.getVerticesPositions().map(p => p.x));
+            const maxXA = Math.max(...this.getVerticesPositions().map(p => p.x));
+            const minXB = Math.min(...shape.getVerticesPositions().map(p => p.x));
+            const maxXB = Math.max(...shape.getVerticesPositions().map(p => p.x));
+
+            const verticallyAligned = Math.abs(minYA - maxYB) < epsilon;
+            console.log(minYA, maxYB);
+            const horizontallyOverlapping = !(maxXA < minXB || minXA > maxXB);
+
+            return verticallyAligned && horizontallyOverlapping;
+        }
+
         static createRect(x: number, y: number, w: number, h: number): CreateJS.ConvexPolygon {
             const points = [
                 new CreateJS.Vec2(0, 0),
@@ -1117,17 +1294,23 @@ export class CreateJS {
     }
 
     static Physics = class {
-        static PhysicsBody = class extends CreateJS.ConvexPolygon {
+        static Rigidbody = class extends CreateJS.ConvexPolygon {
             static: boolean;
             mass: number = 1;
             velocity: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
             acceleration: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
+
             elasticity: number = 0.5;
+            friction: number = 0.02;
+
             dragArea: number = 1;
             dragCoefficient: number = 1.2;
+
             angularDamping: number = 0.98;
             angularVelocity: number = 0;
-            momentOfInertia: number;
+            momentOfInertia: number = 0;
+            
+            force: CreateJS.Vec2 = new CreateJS.Vec2();
 
             constructor(isStatic: boolean, polygon: CreateJS.ConvexPolygon);
             constructor(isStatic: boolean, x: number, y: number, ...args: CreateJS.Vec2[]);
@@ -1157,13 +1340,6 @@ export class CreateJS {
 
                 this.static = isStatic;
                 if (this.static) this.mass = 0;
-
-                // Moment of inertia
-                this.momentOfInertia = this.computeMomentOfInertia();
-
-                // Find dragCoefficient
-                const compactness = this.area() / this.perimeter();
-                this.dragCoefficient = CreateJS.Math.clamp(compactness, 0.2, 1.3);
             }
 
             get inverseMass() {
@@ -1186,32 +1362,30 @@ export class CreateJS {
                 }
 
                 const projectedLength = max - min;
-                this.dragArea = projectedLength * CreateJS.Math.METER;
+                this.dragArea = projectedLength;
             }
 
-            setMass(mass: number): CreateJS.Physics.PhysicsBody {
+            setMass(mass: number): CreateJS.Physics.Rigidbody {
                 if (this.static) return this;
 
                 this.mass = mass;
                 return this;
             }
 
-            setElasticity(elasticity: number): CreateJS.Physics.PhysicsBody {
+            setElasticity(elasticity: number): CreateJS.Physics.Rigidbody {
                 this.elasticity = elasticity;
                 return this;
             }
             
-            applyForce(force: CreateJS.Vec2): CreateJS.Physics.PhysicsBody {
-                const acceleration = force.clone().div(this.mass);
-                this.acceleration.add(acceleration);
-                return this;
+            applyForce(force: CreateJS.Vec2): void {
+                this.force.add(force);
             }
 
-            applyAngularVelocity(body: CreateJS.Physics.PhysicsBody, collisionInfo: CreateJS.SATCollisionInfo, dt: number): CreateJS.Physics.PhysicsBody {
-                if (!collisionInfo.collided) return this;
+            applyAngularVelocity(body: CreateJS.Physics.Rigidbody, collisionInfo: CreateJS.SATCollisionInfo, dt: number): void {
+                if (!collisionInfo.collided) return;
 
                 const contactPoint = collisionInfo.contactPoint;
-                const r = contactPoint.clone().sub(this.center()).mul(CreateJS.Math.METER);
+                const r = contactPoint.clone().sub(this.center());
 
                 // force
                 const relativeVel = body.velocity.clone().sub(this.velocity);
@@ -1222,7 +1396,7 @@ export class CreateJS {
 
                 const elasticity = Math.min(this.elasticity, body.elasticity);
                 const impulseMag = -(1 + elasticity) * separatingVelocity / (this.inverseMass + body.inverseMass);
-                const impulse = collisionInfo.normal.clone().mul(impulseMag * CreateJS.Math.METER);
+                const impulse = collisionInfo.normal.clone().mul(impulseMag);
 
                 if (velAlongNormal <= 0) {
                     const torque = r.cross(impulse);
@@ -1233,13 +1407,11 @@ export class CreateJS {
 
                 // rotational friction
                 const rotationalFrictionCoefficient = 0.15;
-                const normalForce = Math.abs(impulseMag * CreateJS.Math.METER);
+                const normalForce = Math.abs(impulseMag);
                 const frictionTorque = -Math.sign(this.angularVelocity) * rotationalFrictionCoefficient * normalForce * r.length();
 
                 const angularFrictionImpulse = frictionTorque * dt;
                 this.angularVelocity += angularFrictionImpulse / this.momentOfInertia;
-
-                return this;
             }
             
             applyAirDrag(airDensity: number = 1.225): void {
@@ -1258,7 +1430,7 @@ export class CreateJS {
             }
 
             computeMomentOfInertia(): number {
-                const vertices = this.points.map(p => p.clone().mul(CreateJS.Math.METER));
+                const vertices = this.points.map(p => p.clone());
 
                 let numerator = 0;
                 let denominator = 0;
@@ -1274,33 +1446,61 @@ export class CreateJS {
                     denominator += cross;
                 }
 
-                return (this.mass / 6) * (numerator / denominator) * ((1 / CreateJS.Math.METER) ** 2);
+                return (this.mass / 6) * (numerator / denominator);
             }
 
-            integrate(dt: number): CreateJS.Physics.PhysicsBody {
-                this.velocity.add(this.acceleration.clone().mul(dt));
+            step(dt: number): CreateJS.Physics.Rigidbody {
+                this.acceleration.set(this.force.clone().div(this.mass));
+                this.velocity.add(this.acceleration.clone());
                 if (this.velocity.length() < 0.01) {
-                    this.velocity.set(0, 0);
+                    this.velocity.zero();
                 }
-                this.position.add(this.velocity.clone().mul(dt));
+                this.position.add(this.velocity.clone());
 
-                this.angularVelocity *= this.angularDamping;
-                if (this.angularVelocity < 0.001) {
-                    this.angularVelocity = 0;
-                }
-                this.rotate(this.angularVelocity);
-
-                this.acceleration.set(0, 0);
+                this.velocity.mul(1 - this.friction);
+                this.force.zero();
 
                 return this;
             }
         }
 
-        private _bodies: CreateJS.Physics.PhysicsBody[] = [];
+        static Sprite = class extends CreateJS.Physics.Rigidbody {
+            constructor(isStatic: boolean, polygon: CreateJS.ConvexPolygon);
+            constructor(isStatic: boolean, x: number, y: number, ...args: CreateJS.Vec2[]);
+            constructor(isStatic: boolean, x: number | CreateJS.ConvexPolygon, y?: number, ...args: CreateJS.Vec2[]) {
+                let xNum;
+                let yNum;
+                let points: CreateJS.Vec2[] = [];
+
+                let polygon: CreateJS.ConvexPolygon | undefined;
+                if (typeof x === "object") {
+                    xNum = x.x;
+                    yNum = x.y;
+                    points = x.points;
+
+                    polygon = x;
+                } else {
+                    xNum = x;
+                    yNum = y as number;
+                    points = args;
+                }
+                
+                super(xNum, yNum, ...points);
+                
+                if (polygon) {
+                    Object.assign(this, polygon);
+                }
+
+                this.static = isStatic;
+                if (this.static) this.mass = 0;
+            }
+        }
+
+        private _bodies: CreateJS.Physics.Rigidbody[] = [];
         private gravity: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
         private airDensity: number = 1.225;
 
-        addBody(...bodies: CreateJS.Physics.PhysicsBody[]): CreateJS.Physics {
+        addBody(...bodies: CreateJS.Physics.Rigidbody[]): CreateJS.Physics {
             this._bodies.push(...bodies);
             return this;
         }
@@ -1324,7 +1524,24 @@ export class CreateJS {
             this.airDensity = density;
         }
 
-        penetrationResolution(A: CreateJS.Physics.PhysicsBody, B: CreateJS.Physics.PhysicsBody, collisionInfo: CreateJS.SATCollisionInfo): void {
+        applyJumpTo(body: CreateJS.Physics.Rigidbody, force: number, condition?: ( currentBody: CreateJS.Physics.Rigidbody, otherBody: CreateJS.Physics.Rigidbody ) => boolean): void {
+            let canJump = !condition;
+            this._bodies.forEach(b => {
+                if (body === b) return;
+
+                if (condition && condition(body, b)) {
+                    canJump = true;
+                }
+            });
+            
+            if (canJump) {
+                body.applyForce(this.gravity.clone().mul(body.mass).mul(new CreateJS.Vec2(0, -(force + 1))));
+            
+                console.log(body.force);
+            }
+        }
+
+        private penetrationResolution(A: CreateJS.Physics.Rigidbody, B: CreateJS.Physics.Rigidbody, collisionInfo: CreateJS.SATCollisionInfo): void {
             if (!collisionInfo.collided) return;
 
             const correction = collisionInfo.normal.clone().mul(collisionInfo.depth / (A.inverseMass + B.inverseMass));
@@ -1332,7 +1549,7 @@ export class CreateJS {
             B.position.add(correction.mul(B.inverseMass));
         }
 
-        resolveVelocity(A: CreateJS.Physics.PhysicsBody, B: CreateJS.Physics.PhysicsBody, collisionInfo: CreateJS.SATCollisionInfo): void {
+        private resolveVelocity(A: CreateJS.Physics.Rigidbody, B: CreateJS.Physics.Rigidbody, collisionInfo: CreateJS.SATCollisionInfo): void {
             if (!collisionInfo.collided) return;
 
             const relativeVelocity = B.velocity.clone().sub(A.velocity);
@@ -1354,25 +1571,20 @@ export class CreateJS {
             this._bodies.forEach(body => {
                 if (!body.static) {
                     body.applyForce(this.gravity.clone().mul(body.mass));
-
-                    body.applyAirDrag(this.airDensity);
+                    body.step(dt);
                 }
 
-                this._bodies.forEach((body2) => {
-                    if (body === body2) return;
 
-                    const collisionInfo = body.intersectsWith(body2);
+                for (let i = 0; i < 5; i++)
+                    this._bodies.forEach(body2 => {
+                        if (body === body2) return;
 
-                    if (collisionInfo.collided) {
-                        this.penetrationResolution(body, body2, collisionInfo);
-                        this.resolveVelocity(body, body2, collisionInfo);
-                        body.applyAngularVelocity(body2, collisionInfo, dt);
-                    }
-                });
-
-                if (!body.static) {
-                    body.integrate(dt);
-                }
+                        const collisionInfo = body.intersectsWith(body2);
+                        if (collisionInfo.collided) {
+                            this.penetrationResolution(body, body2, collisionInfo);
+                            this.resolveVelocity(body, body2, collisionInfo);
+                        }
+                    });
             });
         }
     }
@@ -1461,7 +1673,7 @@ export class CreateJS {
         return this;
     }
 
-    render(objects?: CreateJS.Drawable[]): void {
+    render(...objects: CreateJS.Drawable[]): void {
         this.c.fillStyle = this._backgroundColor;
         this.c.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -1484,6 +1696,9 @@ export namespace CreateJS {
     } | {
         collided: false;
     };
+    export type Drawable = {
+        draw: (c: CanvasRenderingContext2D) => void;
+    }
 
     export type Shape = InstanceType<typeof CreateJS.Shape>;
     export type Point = InstanceType<typeof CreateJS.Point>;
@@ -1494,10 +1709,11 @@ export namespace CreateJS {
     export type KeyboardEvent = InstanceType<typeof CreateJS.KeyboardEvent>;
     export type TouchEvent = InstanceType<typeof CreateJS.TouchEvent>;
     export type TimeHandler = InstanceType<typeof CreateJS.TimeHandler>;
-    export type Drawable = {
-        draw: (c: CanvasRenderingContext2D) => void;
-    }
+    export type Utils = InstanceType<typeof CreateJS.Utils>;
 
+    export namespace Utils {
+        export type Keyboard = InstanceType<typeof CreateJS.Utils.Keyboard>;
+    }
 
     export namespace KeyboardEvent {
         export type Key = typeof CreateJS.KeyboardEvent.Key;
@@ -1513,7 +1729,7 @@ export namespace CreateJS {
     }
 
     export namespace Physics {
-        export type PhysicsBody = InstanceType<typeof CreateJS.Physics.PhysicsBody>;
+        export type Rigidbody = InstanceType<typeof CreateJS.Physics.Rigidbody>;
     }
 }
 

@@ -11,7 +11,7 @@ var __setFunctionName = (this && this.__setFunctionName) || function (f, name, p
     if (typeof name === "symbol") name = name.description ? "[".concat(name.description, "]") : "";
     return Object.defineProperty(f, "name", { configurable: true, value: prefix ? "".concat(prefix, " ", name) : name });
 };
-var _a, _b, _c, _d, _e, _f;
+var _a, _b, _c, _d, _e;
 export class CreateJS {
     constructor(canvas) {
         this._backgroundColor = "white";
@@ -34,7 +34,7 @@ export class CreateJS {
         this._backgroundColor = color;
         return this;
     }
-    render(objects) {
+    render(...objects) {
         this.c.fillStyle = this._backgroundColor;
         this.c.fillRect(0, 0, this.canvas.width, this.canvas.height);
         if (objects) {
@@ -242,30 +242,176 @@ CreateJS.Vec2 = class {
         return new CreateJS.Vec2(arr[0], arr[1]);
     }
 };
-CreateJS.Math = (_a = class {
-        static degToRad(degrees) {
-            return degrees * Math.PI / 180;
-        }
-        static radToDeg(radians) {
-            return radians * 180 / Math.PI;
-        }
-        static clamp(num, min, max) {
-            return num < min ? min : (num > max ? max : num);
-        }
-        static pxToMeter(px) {
-            return px * CreateJS.Math.METER;
-        }
-        static meterToPx(meter) {
-            return meter / CreateJS.Math.METER;
-        }
+CreateJS.Math = class {
+    static degToRad(degrees) {
+        return degrees * Math.PI / 180;
+    }
+    static radToDeg(radians) {
+        return radians * 180 / Math.PI;
+    }
+    static clamp(num, min, max) {
+        return num < min ? min : (num > max ? max : num);
+    }
+    static random(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+};
+CreateJS.Colors = {
+    AliceBlue: "aliceblue",
+    AntiqueWhite: "antiquewhite",
+    Aqua: "aqua",
+    Aquamarine: "aquamarine",
+    Azure: "azure",
+    Beige: "beige",
+    Bisque: "bisque",
+    Black: "black",
+    BlanchedAlmond: "blanchedalmond",
+    Blue: "blue",
+    BlueViolet: "blueviolet",
+    Brown: "brown",
+    BurlyWood: "burlywood",
+    CadetBlue: "cadetblue",
+    Chartreuse: "chartreuse",
+    Chocolate: "chocolate",
+    Coral: "coral",
+    CornflowerBlue: "cornflowerblue",
+    Cornsilk: "cornsilk",
+    Crimson: "crimson",
+    Cyan: "cyan",
+    DarkBlue: "darkblue",
+    DarkCyan: "darkcyan",
+    DarkGoldenRod: "darkgoldenrod",
+    DarkGray: "darkgray",
+    DarkGreen: "darkgreen",
+    DarkKhaki: "darkkhaki",
+    DarkMagenta: "darkmagenta",
+    DarkOliveGreen: "darkolivegreen",
+    DarkOrange: "darkorange",
+    DarkOrchid: "darkorchid",
+    DarkRed: "darkred",
+    DarkSalmon: "darksalmon",
+    DarkSeaGreen: "darkseagreen",
+    DarkSlateBlue: "darkslateblue",
+    DarkSlateGray: "darkslategray",
+    DarkTurquoise: "darkturquoise",
+    DarkViolet: "darkviolet",
+    DeepPink: "deeppink",
+    DeepSkyBlue: "deepskyblue",
+    DimGray: "dimgray",
+    DodgerBlue: "dodgerblue",
+    FireBrick: "firebrick",
+    FloralWhite: "floralwhite",
+    ForestGreen: "forestgreen",
+    Fuchsia: "fuchsia",
+    Gainsboro: "gainsboro",
+    GhostWhite: "ghostwhite",
+    Gold: "gold",
+    GoldenRod: "goldenrod",
+    Gray: "gray",
+    Green: "green",
+    GreenYellow: "greenyellow",
+    HoneyDew: "honeydew",
+    HotPink: "hotpink",
+    IndianRed: "indianred",
+    Indigo: "indigo",
+    Ivory: "ivory",
+    Khaki: "khaki",
+    Lavender: "lavender",
+    LavenderBlush: "lavenderblush",
+    LawnGreen: "lawngreen",
+    LemonChiffon: "lemonchiffon",
+    LightBlue: "lightblue",
+    LightCoral: "lightcoral",
+    LightCyan: "lightcyan",
+    LightGoldenRodYellow: "lightgoldenrodyellow",
+    LightGray: "lightgray",
+    LightGreen: "lightgreen",
+    LightPink: "lightpink",
+    LightSalmon: "lightsalmon",
+    LightSeaGreen: "lightseagreen",
+    LightSkyBlue: "lightskyblue",
+    LightSlateGray: "lightslategray",
+    LightSteelBlue: "lightsteelblue",
+    LightYellow: "lightyellow",
+    Lime: "lime",
+    LimeGreen: "limegreen",
+    Linen: "linen",
+    Magenta: "magenta",
+    Maroon: "maroon",
+    MediumAquaMarine: "mediumaquamarine",
+    MediumBlue: "mediumblue",
+    MediumOrchid: "mediumorchid",
+    MediumPurple: "mediumpurple",
+    MediumSeaGreen: "mediumseagreen",
+    MediumSlateBlue: "mediumslateblue",
+    MediumSpringGreen: "mediumspringgreen",
+    MediumTurquoise: "mediumturquoise",
+    MediumVioletRed: "mediumvioletred",
+    MidnightBlue: "midnightblue",
+    MintCream: "mintcream",
+    MistyRose: "mistyrose",
+    Moccasin: "moccasin",
+    NavajoWhite: "navajowhite",
+    Navy: "navy",
+    OldLace: "oldlace",
+    Olive: "olive",
+    OliveDrab: "olivedrab",
+    Orange: "orange",
+    OrangeRed: "orangered",
+    Orchid: "orchid",
+    PaleGoldenRod: "palegoldenrod",
+    PaleGreen: "palegreen",
+    PaleTurquoise: "paleturquoise",
+    PaleVioletRed: "palevioletred",
+    PapayaWhip: "papayawhip",
+    PeachPuff: "peachpuff",
+    Peru: "peru",
+    Pink: "pink",
+    Plum: "plum",
+    PowderBlue: "powderblue",
+    Purple: "purple",
+    RebeccaPurple: "rebeccapurple",
+    Red: "red",
+    RosyBrown: "rosybrown",
+    RoyalBlue: "royalblue",
+    SaddleBrown: "saddlebrown",
+    Salmon: "salmon",
+    SandyBrown: "sandybrown",
+    SeaGreen: "seagreen",
+    SeaShell: "seashell",
+    Sienna: "sienna",
+    Silver: "silver",
+    SkyBlue: "skyblue",
+    SlateBlue: "slateblue",
+    SlateGray: "slategray",
+    Snow: "snow",
+    SpringGreen: "springgreen",
+    SteelBlue: "steelblue",
+    Tan: "tan",
+    Teal: "teal",
+    Thistle: "thistle",
+    Tomato: "tomato",
+    Turquoise: "turquoise",
+    Violet: "violet",
+    Wheat: "wheat",
+    White: "white",
+    WhiteSmoke: "whitesmoke",
+    Yellow: "yellow",
+    YellowGreen: "yellowgreen",
+    FromRGBA: (red, green, blue, alpha = 1) => {
+        return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
     },
-    __setFunctionName(_a, "Math"),
-    _a.METER = 1 / 100,
-    _a);
-CreateJS.TouchEvent = (_b = class {
+    FromHSLA: (hue, saturation, lightness, alpha = 1) => {
+        return `hsla(${hue}, ${saturation}%, ${lightness}%, ${alpha})`;
     },
-    __setFunctionName(_b, "TouchEvent"),
-    _b.Handler = class {
+    FromHex: (hex) => {
+        return `#${hex}`;
+    }
+};
+CreateJS.TouchEvent = (_a = class {
+    },
+    __setFunctionName(_a, "TouchEvent"),
+    _a.Handler = class {
         constructor(options = { preventDefault: false }) {
             this._unhandle = false;
             this._pinch = false;
@@ -385,11 +531,11 @@ CreateJS.TouchEvent = (_b = class {
             }
         }
     },
-    _b);
-CreateJS.KeyboardEvent = (_c = class {
+    _a);
+CreateJS.KeyboardEvent = (_b = class {
     },
-    __setFunctionName(_c, "KeyboardEvent"),
-    _c.Key = {
+    __setFunctionName(_b, "KeyboardEvent"),
+    _b.Key = {
         KeyA: "KeyA",
         KeyB: "KeyB",
         KeyC: "KeyC",
@@ -494,7 +640,7 @@ CreateJS.KeyboardEvent = (_c = class {
         Pause: "Pause",
         ContextMenu: "ContextMenu",
     },
-    _c.Handler = class {
+    _b.Handler = class {
         constructor() {
             this.heldKeys = new Set();
             this.callbacks = new Map();
@@ -533,7 +679,7 @@ CreateJS.KeyboardEvent = (_c = class {
             this.callbacks.delete(key);
         }
     },
-    _c);
+    _b);
 CreateJS.Point = class {
     constructor(x, y) {
         this._fillColor = "white";
@@ -611,7 +757,7 @@ CreateJS.Line = class {
         return new CreateJS.Vec2(this.x2 - this.x1, this.y2 - this.y1);
     }
 };
-CreateJS.Shape = (_d = class {
+CreateJS.Shape = (_c = class {
         constructor(x, y) {
             this._fillColor = "white";
             this._strokeColor = "white";
@@ -650,14 +796,14 @@ CreateJS.Shape = (_d = class {
             throw new Error("Function not implemented");
         }
     },
-    __setFunctionName(_d, "Shape"),
-    _d.Anchors = {
+    __setFunctionName(_c, "Shape"),
+    _c.Anchors = {
         TopLeft: "TopLeft",
         TopRight: "TopRight",
         BottomRight: "BottomRight",
         BottomLeft: "BottomLeft"
     },
-    _d);
+    _c);
 CreateJS.ConvexPolygon = class extends CreateJS.Shape {
     constructor(x, y, ...args) {
         super(x, y);
@@ -939,6 +1085,19 @@ CreateJS.ConvexPolygon = class extends CreateJS.Shape {
         this._maxScale = area;
         return this;
     }
+    isOnTopOf(shape) {
+        const epsilon = 1e-5;
+        const minYA = Math.min(...this.getVerticesPositions().map(p => p.y));
+        const maxYB = Math.max(...shape.getVerticesPositions().map(p => p.y));
+        const minXA = Math.min(...this.getVerticesPositions().map(p => p.x));
+        const maxXA = Math.max(...this.getVerticesPositions().map(p => p.x));
+        const minXB = Math.min(...shape.getVerticesPositions().map(p => p.x));
+        const maxXB = Math.max(...shape.getVerticesPositions().map(p => p.x));
+        const verticallyAligned = Math.abs(minYA - maxYB) < epsilon;
+        console.log(minYA, maxYB);
+        const horizontallyOverlapping = !(maxXA < minXB || minXA > maxXB);
+        return verticallyAligned && horizontallyOverlapping;
+    }
     static createRect(x, y, w, h) {
         const points = [
             new CreateJS.Vec2(0, 0),
@@ -980,7 +1139,7 @@ CreateJS.ConvexPolygon = class extends CreateJS.Shape {
         return new CreateJS.ConvexPolygon(hullPoints[0].x, hullPoints[0].y, ...hullPoints.map(point => point.clone().sub(hullPoints[0])));
     }
 };
-CreateJS.Physics = (_e = class {
+CreateJS.Physics = (_d = class {
         constructor() {
             this._bodies = [];
             this.gravity = new CreateJS.Vec2(0, 0);
@@ -1004,6 +1163,20 @@ CreateJS.Physics = (_e = class {
         }
         setAirDensity(density) {
             this.airDensity = density;
+        }
+        applyJumpTo(body, force, condition) {
+            let canJump = !condition;
+            this._bodies.forEach(b => {
+                if (body === b)
+                    return;
+                if (condition && condition(body, b)) {
+                    canJump = true;
+                }
+            });
+            if (canJump) {
+                body.applyForce(this.gravity.clone().mul(body.mass).mul(new CreateJS.Vec2(0, -(force + 1))));
+                console.log(body.force);
+            }
         }
         penetrationResolution(A, B, collisionInfo) {
             if (!collisionInfo.collided)
@@ -1029,26 +1202,23 @@ CreateJS.Physics = (_e = class {
             this._bodies.forEach(body => {
                 if (!body.static) {
                     body.applyForce(this.gravity.clone().mul(body.mass));
-                    body.applyAirDrag(this.airDensity);
+                    body.step(dt);
                 }
-                this._bodies.forEach((body2) => {
-                    if (body === body2)
-                        return;
-                    const collisionInfo = body.intersectsWith(body2);
-                    if (collisionInfo.collided) {
-                        this.penetrationResolution(body, body2, collisionInfo);
-                        this.resolveVelocity(body, body2, collisionInfo);
-                        body.applyAngularVelocity(body2, collisionInfo, dt);
-                    }
-                });
-                if (!body.static) {
-                    body.integrate(dt);
-                }
+                for (let i = 0; i < 5; i++)
+                    this._bodies.forEach(body2 => {
+                        if (body === body2)
+                            return;
+                        const collisionInfo = body.intersectsWith(body2);
+                        if (collisionInfo.collided) {
+                            this.penetrationResolution(body, body2, collisionInfo);
+                            this.resolveVelocity(body, body2, collisionInfo);
+                        }
+                    });
             });
         }
     },
-    __setFunctionName(_e, "Physics"),
-    _e.PhysicsBody = class extends CreateJS.ConvexPolygon {
+    __setFunctionName(_d, "Physics"),
+    _d.Rigidbody = class extends CreateJS.ConvexPolygon {
         constructor(isStatic, x, y, ...args) {
             let xNum;
             let yNum;
@@ -1070,21 +1240,19 @@ CreateJS.Physics = (_e = class {
             this.velocity = new CreateJS.Vec2(0, 0);
             this.acceleration = new CreateJS.Vec2(0, 0);
             this.elasticity = 0.5;
+            this.friction = 0.02;
             this.dragArea = 1;
             this.dragCoefficient = 1.2;
             this.angularDamping = 0.98;
             this.angularVelocity = 0;
+            this.momentOfInertia = 0;
+            this.force = new CreateJS.Vec2();
             if (polygon) {
                 Object.assign(this, polygon);
             }
             this.static = isStatic;
             if (this.static)
                 this.mass = 0;
-            // Moment of inertia
-            this.momentOfInertia = this.computeMomentOfInertia();
-            // Find dragCoefficient
-            const compactness = this.area() / this.perimeter();
-            this.dragCoefficient = CreateJS.Math.clamp(compactness, 0.2, 1.3);
         }
         get inverseMass() {
             return this.mass === 0 ? 0 : 1 / this.mass;
@@ -1102,7 +1270,7 @@ CreateJS.Physics = (_e = class {
                 max = Math.max(max, projection);
             }
             const projectedLength = max - min;
-            this.dragArea = projectedLength * CreateJS.Math.METER;
+            this.dragArea = projectedLength;
         }
         setMass(mass) {
             if (this.static)
@@ -1115,15 +1283,13 @@ CreateJS.Physics = (_e = class {
             return this;
         }
         applyForce(force) {
-            const acceleration = force.clone().div(this.mass);
-            this.acceleration.add(acceleration);
-            return this;
+            this.force.add(force);
         }
         applyAngularVelocity(body, collisionInfo, dt) {
             if (!collisionInfo.collided)
-                return this;
+                return;
             const contactPoint = collisionInfo.contactPoint;
-            const r = contactPoint.clone().sub(this.center()).mul(CreateJS.Math.METER);
+            const r = contactPoint.clone().sub(this.center());
             // force
             const relativeVel = body.velocity.clone().sub(this.velocity);
             const velAlongNormal = relativeVel.dot(collisionInfo.normal);
@@ -1131,7 +1297,7 @@ CreateJS.Physics = (_e = class {
             const separatingVelocity = relativeVelocity.dot(collisionInfo.normal);
             const elasticity = Math.min(this.elasticity, body.elasticity);
             const impulseMag = -(1 + elasticity) * separatingVelocity / (this.inverseMass + body.inverseMass);
-            const impulse = collisionInfo.normal.clone().mul(impulseMag * CreateJS.Math.METER);
+            const impulse = collisionInfo.normal.clone().mul(impulseMag);
             if (velAlongNormal <= 0) {
                 const torque = r.cross(impulse);
                 const angularImpulse = torque * dt;
@@ -1139,11 +1305,10 @@ CreateJS.Physics = (_e = class {
             }
             // rotational friction
             const rotationalFrictionCoefficient = 0.15;
-            const normalForce = Math.abs(impulseMag * CreateJS.Math.METER);
+            const normalForce = Math.abs(impulseMag);
             const frictionTorque = -Math.sign(this.angularVelocity) * rotationalFrictionCoefficient * normalForce * r.length();
             const angularFrictionImpulse = frictionTorque * dt;
             this.angularVelocity += angularFrictionImpulse / this.momentOfInertia;
-            return this;
         }
         applyAirDrag(airDensity = 1.225) {
             const speed = this.velocity.length();
@@ -1156,7 +1321,7 @@ CreateJS.Physics = (_e = class {
             this.applyForce(dragForce);
         }
         computeMomentOfInertia() {
-            const vertices = this.points.map(p => p.clone().mul(CreateJS.Math.METER));
+            const vertices = this.points.map(p => p.clone());
             let numerator = 0;
             let denominator = 0;
             for (let i = 0; i < vertices.length; i++) {
@@ -1167,25 +1332,22 @@ CreateJS.Physics = (_e = class {
                 numerator += cross * dot;
                 denominator += cross;
             }
-            return (this.mass / 6) * (numerator / denominator) * (Math.pow((1 / CreateJS.Math.METER), 2));
+            return (this.mass / 6) * (numerator / denominator);
         }
-        integrate(dt) {
-            this.velocity.add(this.acceleration.clone().mul(dt));
+        step(dt) {
+            this.acceleration.set(this.force.clone().div(this.mass));
+            this.velocity.add(this.acceleration.clone());
             if (this.velocity.length() < 0.01) {
-                this.velocity.set(0, 0);
+                this.velocity.zero();
             }
-            this.position.add(this.velocity.clone().mul(dt));
-            this.angularVelocity *= this.angularDamping;
-            if (this.angularVelocity < 0.001) {
-                this.angularVelocity = 0;
-            }
-            this.rotate(this.angularVelocity);
-            this.acceleration.set(0, 0);
+            this.position.add(this.velocity.clone());
+            this.velocity.mul(1 - this.friction);
+            this.force.zero();
             return this;
         }
     },
-    _e);
-CreateJS.TimeHandler = (_f = class {
+    _d);
+CreateJS.TimeHandler = (_e = class {
         static wait(ms) {
             return new Promise((resolve, reject) => {
                 setTimeout(() => {
@@ -1227,9 +1389,9 @@ CreateJS.TimeHandler = (_f = class {
             CreateJS.TimeHandler._pause = false;
         }
     },
-    __setFunctionName(_f, "TimeHandler"),
-    _f.timeBefore = 0,
-    _f._stop = false,
-    _f._pause = false,
-    _f);
+    __setFunctionName(_e, "TimeHandler"),
+    _e.timeBefore = 0,
+    _e._stop = false,
+    _e._pause = false,
+    _e);
 export default CreateJS;
