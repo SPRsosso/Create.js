@@ -1464,38 +1464,6 @@ export class CreateJS {
             }
         }
 
-        static Sprite = class extends CreateJS.Physics.Rigidbody {
-            constructor(isStatic: boolean, polygon: CreateJS.ConvexPolygon);
-            constructor(isStatic: boolean, x: number, y: number, ...args: CreateJS.Vec2[]);
-            constructor(isStatic: boolean, x: number | CreateJS.ConvexPolygon, y?: number, ...args: CreateJS.Vec2[]) {
-                let xNum;
-                let yNum;
-                let points: CreateJS.Vec2[] = [];
-
-                let polygon: CreateJS.ConvexPolygon | undefined;
-                if (typeof x === "object") {
-                    xNum = x.x;
-                    yNum = x.y;
-                    points = x.points;
-
-                    polygon = x;
-                } else {
-                    xNum = x;
-                    yNum = y as number;
-                    points = args;
-                }
-                
-                super(xNum, yNum, ...points);
-                
-                if (polygon) {
-                    Object.assign(this, polygon);
-                }
-
-                this.static = isStatic;
-                if (this.static) this.mass = 0;
-            }
-        }
-
         private _bodies: CreateJS.Physics.Rigidbody[] = [];
         private gravity: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
         private airDensity: number = 1.225;
@@ -1575,7 +1543,7 @@ export class CreateJS {
                 }
 
 
-                for (let i = 0; i < 5; i++)
+                for (let i = 0; i < 3; i++)
                     this._bodies.forEach(body2 => {
                         if (body === body2) return;
 
@@ -1586,6 +1554,41 @@ export class CreateJS {
                         }
                     });
             });
+        }
+    }
+
+    static Sprite = class extends CreateJS.Physics.Rigidbody {
+        image: HTMLImageElement = new Image();
+
+        constructor(isStatic: boolean, polygon: CreateJS.ConvexPolygon);
+        constructor(isStatic: boolean, x: number, y: number, ...args: CreateJS.Vec2[]);
+        constructor(isStatic: boolean, x: number | CreateJS.ConvexPolygon, y?: number, ...args: CreateJS.Vec2[]) {
+            let xNum;
+            let yNum;
+            let points: CreateJS.Vec2[] = [];
+
+            let polygon: CreateJS.ConvexPolygon | undefined;
+            if (typeof x === "object") {
+                xNum = x.x;
+                yNum = x.y;
+                points = x.points;
+
+                polygon = x;
+            } else {
+                xNum = x;
+                yNum = y as number;
+                points = args;
+            }
+            
+            super(isStatic, xNum, yNum, ...points);
+            
+            if (polygon) {
+                Object.assign(this, polygon);
+            }
+        }
+
+        setImage(src: string) {
+            this.image.src = src;
         }
     }
 
@@ -1600,6 +1603,24 @@ export class CreateJS {
                     resolve();
                 }, ms);
             });
+        }
+
+        static Preload = class {
+            static async images(urls: string[]): Promise<{ [key: string]: HTMLImageElement }[]> {
+                const images = urls.map(url => this.loadImage(url));
+
+                const loadedImages = await Promise.all(images);
+                return loadedImages;
+            }
+
+            private static loadImage(url: string): Promise<{ [key: string]: HTMLImageElement }> {
+                return new Promise(( resolve, reject ) => {
+                    const img = new Image();
+                    img.onload = () => resolve({ [url]: img });
+                    img.onerror = reject;
+                    img.src = url;
+                });
+            }
         }
 
         static async tick(fps: number, callback: ( currentTick: number, dt: number ) => number | void): Promise<void> {
@@ -1656,6 +1677,8 @@ export class CreateJS {
             margin: 0;
             overflow: hidden;
         `;
+
+        this.c.imageSmoothingEnabled = false;
 
         return this;
     }

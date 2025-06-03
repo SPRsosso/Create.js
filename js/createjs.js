@@ -11,7 +11,7 @@ var __setFunctionName = (this && this.__setFunctionName) || function (f, name, p
     if (typeof name === "symbol") name = name.description ? "[".concat(name.description, "]") : "";
     return Object.defineProperty(f, "name", { configurable: true, value: prefix ? "".concat(prefix, " ", name) : name });
 };
-var _a, _b, _c, _d, _e;
+var _a, _b, _c, _d, _e, _f;
 export class CreateJS {
     constructor(canvas) {
         this._backgroundColor = "white";
@@ -23,6 +23,7 @@ export class CreateJS {
             margin: 0;
             overflow: hidden;
         `;
+        this.c.imageSmoothingEnabled = false;
         return this;
     }
     resizeCanvas(x, y) {
@@ -256,6 +257,14 @@ CreateJS.Math = class {
         return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 };
+CreateJS.Utils = (_a = class {
+    },
+    __setFunctionName(_a, "Utils"),
+    _a.Keyboard = class {
+        static MoveLeft(bindedObject) {
+        }
+    },
+    _a);
 CreateJS.Colors = {
     AliceBlue: "aliceblue",
     AntiqueWhite: "antiquewhite",
@@ -408,10 +417,10 @@ CreateJS.Colors = {
         return `#${hex}`;
     }
 };
-CreateJS.TouchEvent = (_a = class {
+CreateJS.TouchEvent = (_b = class {
     },
-    __setFunctionName(_a, "TouchEvent"),
-    _a.Handler = class {
+    __setFunctionName(_b, "TouchEvent"),
+    _b.Handler = class {
         constructor(options = { preventDefault: false }) {
             this._unhandle = false;
             this._pinch = false;
@@ -531,11 +540,11 @@ CreateJS.TouchEvent = (_a = class {
             }
         }
     },
-    _a);
-CreateJS.KeyboardEvent = (_b = class {
+    _b);
+CreateJS.KeyboardEvent = (_c = class {
     },
-    __setFunctionName(_b, "KeyboardEvent"),
-    _b.Key = {
+    __setFunctionName(_c, "KeyboardEvent"),
+    _c.Key = {
         KeyA: "KeyA",
         KeyB: "KeyB",
         KeyC: "KeyC",
@@ -640,7 +649,7 @@ CreateJS.KeyboardEvent = (_b = class {
         Pause: "Pause",
         ContextMenu: "ContextMenu",
     },
-    _b.Handler = class {
+    _c.Handler = class {
         constructor() {
             this.heldKeys = new Set();
             this.callbacks = new Map();
@@ -652,6 +661,9 @@ CreateJS.KeyboardEvent = (_b = class {
                 this.heldKeys.delete(event.code);
             });
         }
+        bind(object) {
+            this._binded = object;
+        }
         handle(fps) {
             return __awaiter(this, void 0, void 0, function* () {
                 while (true) {
@@ -661,7 +673,7 @@ CreateJS.KeyboardEvent = (_b = class {
                     }
                     for (let key of this.heldKeys) {
                         if (this.callbacks.has(key)) {
-                            this.callbacks.get(key)();
+                            this.callbacks.get(key)(this._binded);
                         }
                     }
                     yield CreateJS.TimeHandler.wait(fps);
@@ -670,7 +682,6 @@ CreateJS.KeyboardEvent = (_b = class {
         }
         unhandle() {
             this._unhandle = true;
-            return this;
         }
         register(key, callback) {
             this.callbacks.set(key, callback);
@@ -679,7 +690,7 @@ CreateJS.KeyboardEvent = (_b = class {
             this.callbacks.delete(key);
         }
     },
-    _b);
+    _c);
 CreateJS.Point = class {
     constructor(x, y) {
         this._fillColor = "white";
@@ -757,7 +768,7 @@ CreateJS.Line = class {
         return new CreateJS.Vec2(this.x2 - this.x1, this.y2 - this.y1);
     }
 };
-CreateJS.Shape = (_c = class {
+CreateJS.Shape = (_d = class {
         constructor(x, y) {
             this._fillColor = "white";
             this._strokeColor = "white";
@@ -796,14 +807,14 @@ CreateJS.Shape = (_c = class {
             throw new Error("Function not implemented");
         }
     },
-    __setFunctionName(_c, "Shape"),
-    _c.Anchors = {
+    __setFunctionName(_d, "Shape"),
+    _d.Anchors = {
         TopLeft: "TopLeft",
         TopRight: "TopRight",
         BottomRight: "BottomRight",
         BottomLeft: "BottomLeft"
     },
-    _c);
+    _d);
 CreateJS.ConvexPolygon = class extends CreateJS.Shape {
     constructor(x, y, ...args) {
         super(x, y);
@@ -1139,7 +1150,7 @@ CreateJS.ConvexPolygon = class extends CreateJS.Shape {
         return new CreateJS.ConvexPolygon(hullPoints[0].x, hullPoints[0].y, ...hullPoints.map(point => point.clone().sub(hullPoints[0])));
     }
 };
-CreateJS.Physics = (_d = class {
+CreateJS.Physics = (_e = class {
         constructor() {
             this._bodies = [];
             this.gravity = new CreateJS.Vec2(0, 0);
@@ -1204,7 +1215,7 @@ CreateJS.Physics = (_d = class {
                     body.applyForce(this.gravity.clone().mul(body.mass));
                     body.step(dt);
                 }
-                for (let i = 0; i < 5; i++)
+                for (let i = 0; i < 3; i++)
                     this._bodies.forEach(body2 => {
                         if (body === body2)
                             return;
@@ -1217,8 +1228,8 @@ CreateJS.Physics = (_d = class {
             });
         }
     },
-    __setFunctionName(_d, "Physics"),
-    _d.Rigidbody = class extends CreateJS.ConvexPolygon {
+    __setFunctionName(_e, "Physics"),
+    _e.Rigidbody = class extends CreateJS.ConvexPolygon {
         constructor(isStatic, x, y, ...args) {
             let xNum;
             let yNum;
@@ -1346,13 +1357,44 @@ CreateJS.Physics = (_d = class {
             return this;
         }
     },
-    _d);
-CreateJS.TimeHandler = (_e = class {
+    _e);
+CreateJS.Sprite = class extends CreateJS.Physics.Rigidbody {
+    constructor(isStatic, x, y, ...args) {
+        let xNum;
+        let yNum;
+        let points = [];
+        let polygon;
+        if (typeof x === "object") {
+            xNum = x.x;
+            yNum = x.y;
+            points = x.points;
+            polygon = x;
+        }
+        else {
+            xNum = x;
+            yNum = y;
+            points = args;
+        }
+        super(isStatic, xNum, yNum, ...points);
+        this.image = new Image();
+        if (polygon) {
+            Object.assign(this, polygon);
+        }
+    }
+    setImage(src) {
+        this.image.src = src;
+    }
+};
+CreateJS.TimeHandler = (_f = class {
         static wait(ms) {
             return new Promise((resolve, reject) => {
                 setTimeout(() => {
                     resolve();
                 }, ms);
+            });
+        }
+        static Preload() {
+            return __awaiter(this, void 0, void 0, function* () {
             });
         }
         static tick(fps, callback) {
@@ -1389,9 +1431,9 @@ CreateJS.TimeHandler = (_e = class {
             CreateJS.TimeHandler._pause = false;
         }
     },
-    __setFunctionName(_e, "TimeHandler"),
-    _e.timeBefore = 0,
-    _e._stop = false,
-    _e._pause = false,
-    _e);
+    __setFunctionName(_f, "TimeHandler"),
+    _f.timeBefore = 0,
+    _f._stop = false,
+    _f._pause = false,
+    _f);
 export default CreateJS;
