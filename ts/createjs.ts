@@ -1587,8 +1587,8 @@ export class CreateJS {
             }
         }
 
-        setImage(src: string) {
-            this.image.src = src;
+        setImage(image: HTMLImageElement) {
+            this.image = image;
         }
     }
 

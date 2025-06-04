@@ -52,8 +52,6 @@ if (canvas) {
         rectPB.rotate(CreateJS.Math.degToRad(1));
     });
 
-    
-
     CreateJS.TimeHandler.tick(fps, ( currentTick, dt ) => {
         const newForce = force.isZero() ? new CreateJS.Vec2() : force.clone().normalize().mul(new CreateJS.Vec2(4, rectPB.mass * 7));
         rectPB.applyForce(newForce);
