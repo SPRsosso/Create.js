@@ -23,6 +23,9 @@ export class CreateJS {
             margin: 0;
             overflow: hidden;
         `;
+        this.canvas.style.cssText = `
+            image-rendering: pixelated;
+        `;
         this.c.imageSmoothingEnabled = false;
         return this;
     }
@@ -36,6 +39,7 @@ export class CreateJS {
         return this;
     }
     render(...objects) {
+        this.c.imageSmoothingEnabled = false;
         this.c.fillStyle = this._backgroundColor;
         this.c.fillRect(0, 0, this.canvas.width, this.canvas.height);
         if (objects) {
@@ -1358,6 +1362,35 @@ CreateJS.Physics = (_e = class {
         }
     },
     _e);
+CreateJS.Image = class {
+    constructor(img, frameWidth = 0, frameHeight = 0, frameTime = 0) {
+        this.canvas = document.createElement("canvas");
+        this.c = this.canvas.getContext("2d");
+        this.currentFrame = 0;
+        this.image = img;
+        this.frameWidth = frameWidth;
+        this.frameHeight = frameHeight;
+        this.frameTime = frameTime;
+        if (this.image)
+            this.frames = Math.floor(this.image.width / this.frameWidth);
+        else
+            this.frames = 1;
+        this.canvas.width = this.frameWidth;
+        this.canvas.height = this.frameHeight;
+        this.canvas.style.cssText = `
+                image-rendering: pixelated;
+            `;
+        this.c.imageSmoothingEnabled = false;
+    }
+    nextFrame() {
+        this.c.clearRect(0, 0, this.frameWidth, this.frameHeight);
+        if (this.image) {
+            this.c.drawImage(this.image, this.frameWidth * this.currentFrame, 0, this.frameWidth, this.frameHeight, 0, 0, this.frameWidth, this.frameHeight);
+            this.currentFrame = (this.currentFrame + 1) % this.frames;
+        }
+        return this.canvas;
+    }
+};
 CreateJS.Sprite = class extends CreateJS.Physics.Rigidbody {
     constructor(isStatic, x, y, ...args) {
         let xNum;
@@ -1376,13 +1409,37 @@ CreateJS.Sprite = class extends CreateJS.Physics.Rigidbody {
             points = args;
         }
         super(isStatic, xNum, yNum, ...points);
-        this.image = new Image();
+        this.image = new CreateJS.Image();
+        this.frame = document.createElement("canvas");
+        this.canDrawFrame = true;
         if (polygon) {
             Object.assign(this, polygon);
         }
     }
-    setImage(src) {
-        this.image.src = src;
+    setImage(image) {
+        this.image = image;
+    }
+    draw(c) {
+        super.draw(c);
+        if (this.image.image) {
+            if (this.canDrawFrame) {
+                this.canDrawFrame = false;
+                this.frame = this.image.nextFrame();
+                setTimeout(() => {
+                    this.canDrawFrame = true;
+                }, this.image.frameTime);
+            }
+            ;
+            const bounding = this.getBoundingBox();
+            const points = bounding.getVerticesPositions();
+            const pointsX = points.map(p => p.x);
+            const pointsY = points.map(p => p.y);
+            const left = Math.min(...pointsX);
+            const right = Math.max(...pointsX);
+            const top = Math.min(...pointsY);
+            const bottom = Math.max(...pointsY);
+            c.drawImage(this.frame, left, top, right - left, bottom - top);
+        }
     }
 };
 CreateJS.TimeHandler = (_f = class {
@@ -1391,10 +1448,6 @@ CreateJS.TimeHandler = (_f = class {
                 setTimeout(() => {
                     resolve();
                 }, ms);
-            });
-        }
-        static Preload() {
-            return __awaiter(this, void 0, void 0, function* () {
             });
         }
         static tick(fps, callback) {
@@ -1435,5 +1488,26 @@ CreateJS.TimeHandler = (_f = class {
     _f.timeBefore = 0,
     _f._stop = false,
     _f._pause = false,
+    _f.Preload = class {
+        static images(urls) {
+            return __awaiter(this, void 0, void 0, function* () {
+                const images = urls.map(url => this.loadImage(url));
+                const loadedImages = yield Promise.all(images);
+                const object = {};
+                loadedImages.forEach((image, index) => {
+                    object[urls[index]] = image;
+                });
+                return object;
+            });
+        }
+        static loadImage(url) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = url;
+            });
+        }
+    },
     _f);
 export default CreateJS;

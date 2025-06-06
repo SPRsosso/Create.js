@@ -1557,8 +1557,55 @@ export class CreateJS {
         }
     }
 
+    static Image = class {
+        private canvas = document.createElement("canvas");
+        private c = this.canvas.getContext("2d")!;
+
+        image: HTMLImageElement | undefined;
+        frameWidth: number;
+        frameHeight: number;
+        frameTime: number;
+        frames: number;
+        
+        private currentFrame = 0;
+
+        constructor(img?: HTMLImageElement, frameWidth: number = 0, frameHeight: number = 0, frameTime: number = 0) {
+            this.image = img;
+            this.frameWidth = frameWidth;
+            this.frameHeight = frameHeight;
+            this.frameTime = frameTime;
+
+            if (this.image)
+                this.frames = Math.floor(this.image.width / this.frameWidth);
+            else 
+                this.frames = 1;
+
+            this.canvas.width = this.frameWidth;
+            this.canvas.height = this.frameHeight;
+            this.canvas.style.cssText = `
+                image-rendering: pixelated;
+            `;
+
+            this.c.imageSmoothingEnabled = false;
+        }
+
+        nextFrame(): HTMLCanvasElement {
+            this.c.clearRect(0, 0, this.frameWidth, this.frameHeight);
+
+            if (this.image) {
+                this.c.drawImage(this.image, this.frameWidth * this.currentFrame, 0, this.frameWidth, this.frameHeight, 0, 0, this.frameWidth, this.frameHeight);
+    
+                this.currentFrame = (this.currentFrame + 1) % this.frames;
+            }
+
+            return this.canvas;
+        }
+    }
+
     static Sprite = class extends CreateJS.Physics.Rigidbody {
-        image: HTMLImageElement = new Image();
+        image: CreateJS.Image = new CreateJS.Image();
+        private frame: HTMLCanvasElement = document.createElement("canvas");
+        private canDrawFrame: boolean = true;
 
         constructor(isStatic: boolean, polygon: CreateJS.ConvexPolygon);
         constructor(isStatic: boolean, x: number, y: number, ...args: CreateJS.Vec2[]);
@@ -1587,8 +1634,35 @@ export class CreateJS {
             }
         }
 
-        setImage(image: HTMLImageElement) {
+        setImage(image: CreateJS.Image) {
             this.image = image;
+        }
+
+        draw(c: CanvasRenderingContext2D) {
+            super.draw(c);
+            if (this.image.image) {
+                if (this.canDrawFrame) {
+                    this.canDrawFrame = false;
+    
+                    this.frame = this.image.nextFrame();
+    
+                    setTimeout(() => {
+                        this.canDrawFrame = true;
+                    }, this.image.frameTime);
+                };
+
+                const bounding = this.getBoundingBox();
+                const points = bounding.getVerticesPositions();
+                const pointsX = points.map(p => p.x);
+                const pointsY = points.map(p => p.y);
+
+                const left = Math.min(...pointsX);
+                const right = Math.max(...pointsX);
+                const top = Math.min(...pointsY);
+                const bottom = Math.max(...pointsY);
+
+                c.drawImage(this.frame, left, top, right - left, bottom - top);
+            }
         }
     }
 
@@ -1606,17 +1680,23 @@ export class CreateJS {
         }
 
         static Preload = class {
-            static async images(urls: string[]): Promise<{ [key: string]: HTMLImageElement }[]> {
+            static async images(urls: string[]): Promise<({ [key: string]: HTMLImageElement })> {
                 const images = urls.map(url => this.loadImage(url));
 
                 const loadedImages = await Promise.all(images);
-                return loadedImages;
+
+                const object: { [key: string]: HTMLImageElement } = {};
+                loadedImages.forEach(( image, index ) => {
+                    object[urls[index]] = image;
+                });
+
+                return object;
             }
 
-            private static loadImage(url: string): Promise<{ [key: string]: HTMLImageElement }> {
+            private static loadImage(url: string): Promise<HTMLImageElement> {
                 return new Promise(( resolve, reject ) => {
                     const img = new Image();
-                    img.onload = () => resolve({ [url]: img });
+                    img.onload = () => resolve(img);
                     img.onerror = reject;
                     img.src = url;
                 });
@@ -1678,6 +1758,10 @@ export class CreateJS {
             overflow: hidden;
         `;
 
+        this.canvas.style.cssText = `
+            image-rendering: pixelated;
+        `;
+
         this.c.imageSmoothingEnabled = false;
 
         return this;
@@ -1697,6 +1781,7 @@ export class CreateJS {
     }
 
     render(...objects: CreateJS.Drawable[]): void {
+        this.c.imageSmoothingEnabled = false;
         this.c.fillStyle = this._backgroundColor;
         this.c.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -1733,6 +1818,8 @@ export namespace CreateJS {
     export type TouchEvent = InstanceType<typeof CreateJS.TouchEvent>;
     export type TimeHandler = InstanceType<typeof CreateJS.TimeHandler>;
     export type Utils = InstanceType<typeof CreateJS.Utils>;
+    export type Image = InstanceType<typeof CreateJS.Image>;
+    export type Sprite = InstanceType<typeof CreateJS.Sprite>;
 
     export namespace Utils {
         export type Keyboard = InstanceType<typeof CreateJS.Utils.Keyboard>;
