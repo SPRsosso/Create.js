@@ -7,11 +7,21 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __setFunctionName = (this && this.__setFunctionName) || function (f, name, prefix) {
-    if (typeof name === "symbol") name = name.description ? "[".concat(name.description, "]") : "";
-    return Object.defineProperty(f, "name", { configurable: true, value: prefix ? "".concat(prefix, " ", name) : name });
-};
-var _a, _b, _c, _d, _e, _f;
+var _a, _b, _c, _d, _e, _f, _g;
+function deepCloneObject(obj) {
+    if (obj === null || typeof obj !== 'object')
+        return obj;
+    if (obj instanceof Date)
+        return new Date(obj);
+    if (Array.isArray(obj)) {
+        return obj.map(deepCloneObject);
+    }
+    const clone = Object.create(Object.getPrototypeOf(obj));
+    for (const key of Reflect.ownKeys(obj)) {
+        clone[key] = deepCloneObject(obj[key]);
+    }
+    return clone;
+}
 export class CreateJS {
     constructor(canvas) {
         this._backgroundColor = "white";
@@ -49,7 +59,7 @@ export class CreateJS {
         }
     }
 }
-CreateJS.Vec2 = class {
+CreateJS.Vec2 = class Vec2 {
     constructor(x = 0, y = 0) {
         this.x = x;
         this.y = y;
@@ -247,7 +257,7 @@ CreateJS.Vec2 = class {
         return new CreateJS.Vec2(arr[0], arr[1]);
     }
 };
-CreateJS.Math = class {
+CreateJS.Math = class CreateJS_Math {
     static degToRad(degrees) {
         return degrees * Math.PI / 180;
     }
@@ -261,10 +271,35 @@ CreateJS.Math = class {
         return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 };
-CreateJS.Utils = (_a = class {
+CreateJS.Utils = (_a = class Utils {
     },
-    __setFunctionName(_a, "Utils"),
-    _a.Keyboard = class {
+    _a.Mouse = class Utils_Mouse {
+        static DragObject(bindedObject, target, offset, event) {
+            if (typeof bindedObject === "object"
+                && bindedObject instanceof HTMLElement) {
+                const x = bindedObject.getBoundingClientRect().left;
+                const y = bindedObject.getBoundingClientRect().top;
+                const width = bindedObject.getBoundingClientRect().right - x;
+                const height = bindedObject.getBoundingClientRect().bottom - y;
+                const rect = CreateJS.ConvexPolygon.createRect(x, y, width, height);
+                const isMouseOver = rect.containsPoint(new CreateJS.Vec2(event.clientX, event.clientY));
+                if (isMouseOver) {
+                    const pos = new CreateJS.Vec2(x, y);
+                    pos.add(offset);
+                    bindedObject.style.left = pos.x + "px";
+                    bindedObject.style.top = pos.y + "px";
+                }
+            }
+            if (typeof bindedObject === "object"
+                && bindedObject instanceof CreateJS.Physics.Rigidbody) {
+                const vec = new CreateJS.Vec2(event.clientX, event.clientY);
+                if (bindedObject.containsPoint(vec)) {
+                    bindedObject.position.add(offset);
+                }
+            }
+        }
+    },
+    _a.Keyboard = class Utils_Keyboard {
         static MoveLeft(bindedObject) {
         }
     },
@@ -421,10 +456,9 @@ CreateJS.Colors = {
         return `#${hex}`;
     }
 };
-CreateJS.TouchEvent = (_b = class {
+CreateJS.TouchEvent = (_b = class CreateJS_TouchEvent {
     },
-    __setFunctionName(_b, "TouchEvent"),
-    _b.Handler = class {
+    _b.Handler = class TouchEvent_Handler {
         constructor(options = { preventDefault: false }) {
             this._unhandle = false;
             this._pinch = false;
@@ -545,10 +579,83 @@ CreateJS.TouchEvent = (_b = class {
         }
     },
     _b);
-CreateJS.KeyboardEvent = (_c = class {
+CreateJS.MouseEvent = (_c = class CreateJS_MouseEvent {
     },
-    __setFunctionName(_c, "KeyboardEvent"),
-    _c.Key = {
+    _c.Type = {
+        Drag: "Drag",
+        Click: "Click",
+        DoubleClick: "DoubleClick",
+    },
+    _c.Handler = class MouseEvent_Handler {
+        constructor() {
+            this._callbacks = [];
+            this._unhandle = false;
+            addEventListener("mousedown", (event) => {
+                this._mouseDown = event;
+            });
+            addEventListener("mouseup", (event) => {
+                this._mouseUp = event;
+            });
+            addEventListener("mousemove", (event) => {
+                this._mouseMove = event;
+            });
+            addEventListener("dblclick", (event) => {
+                this._dblClick = event;
+            });
+        }
+        handle(fps) {
+            return __awaiter(this, void 0, void 0, function* () {
+                while (true) {
+                    if (this._unhandle) {
+                        this._unhandle = false;
+                        return;
+                    }
+                    this._callbacks.forEach(callback => {
+                        if (callback.type === CreateJS.MouseEvent.Type.Click && this._mouseUp) {
+                            callback.callback(this._binded, this._mouseUp.target, this._mouseUp);
+                        }
+                        if (callback.type === CreateJS.MouseEvent.Type.DoubleClick && this._dblClick) {
+                            callback.callback(this._binded, this._dblClick.target, this._dblClick);
+                        }
+                        if (callback.type === CreateJS.MouseEvent.Type.Drag && this._mouseDown && this._mouseMove && this._beforeMouseMove) {
+                            const offset = new CreateJS.Vec2(this._mouseMove.clientX, this._mouseMove.clientY);
+                            offset.sub(new CreateJS.Vec2(this._beforeMouseMove.clientX, this._beforeMouseMove.clientY));
+                            callback.callback(this._binded, this._mouseMove.target, offset, this._mouseMove);
+                        }
+                    });
+                    if (this._mouseDown) {
+                        this._beforeMouseMove = this._mouseMove;
+                    }
+                    if (this._mouseUp) {
+                        this._mouseDown = undefined;
+                        this._mouseUp = undefined;
+                        this._beforeMouseMove = undefined;
+                    }
+                    if (this._dblClick) {
+                        this._dblClick = undefined;
+                    }
+                    yield CreateJS.TimeHandler.wait(fps);
+                }
+            });
+        }
+        unhandle() {
+            this._unhandle = true;
+        }
+        bind(object) {
+            this._binded = object;
+            return this;
+        }
+        register(type, callback) {
+            this._callbacks.push({ type, callback });
+        }
+        unregister(type) {
+            this._callbacks = this._callbacks.filter(callback => callback.type !== type);
+        }
+    },
+    _c);
+CreateJS.KeyboardEvent = (_d = class CreateJS_KeyboardEvent {
+    },
+    _d.Key = {
         KeyA: "KeyA",
         KeyB: "KeyB",
         KeyC: "KeyC",
@@ -653,20 +760,26 @@ CreateJS.KeyboardEvent = (_c = class {
         Pause: "Pause",
         ContextMenu: "ContextMenu",
     },
-    _c.Handler = class {
+    _d.Handler = class KeyboardEvent_Handler {
         constructor() {
             this.heldKeys = new Set();
+            this.pressedKeys = new Map();
             this.callbacks = new Map();
             this._unhandle = false;
             addEventListener("keydown", (event) => {
                 this.heldKeys.add(event.code);
+                if (!this.pressedKeys.has(event.code)) {
+                    this.pressedKeys.set(event.code, true);
+                }
             });
             addEventListener("keyup", (event) => {
                 this.heldKeys.delete(event.code);
+                this.pressedKeys.delete(event.code);
             });
         }
         bind(object) {
             this._binded = object;
+            return this;
         }
         handle(fps) {
             return __awaiter(this, void 0, void 0, function* () {
@@ -677,7 +790,19 @@ CreateJS.KeyboardEvent = (_c = class {
                     }
                     for (let key of this.heldKeys) {
                         if (this.callbacks.has(key)) {
-                            this.callbacks.get(key)(this._binded);
+                            if (this.callbacks.get(key).options.type === "hold") {
+                                this.callbacks.get(key).callback(this._binded);
+                            }
+                        }
+                    }
+                    for (let [key] of this.pressedKeys) {
+                        if (this.callbacks.has(key)) {
+                            if (this.pressedKeys.get(key)) {
+                                if (this.callbacks.get(key).options.type === "press") {
+                                    this.callbacks.get(key).callback(this._binded);
+                                    this.pressedKeys.set(key, false);
+                                }
+                            }
                         }
                     }
                     yield CreateJS.TimeHandler.wait(fps);
@@ -687,15 +812,15 @@ CreateJS.KeyboardEvent = (_c = class {
         unhandle() {
             this._unhandle = true;
         }
-        register(key, callback) {
-            this.callbacks.set(key, callback);
+        register(key, callback, options = { type: "hold" }) {
+            this.callbacks.set(key, { callback, options });
         }
         unregister(key) {
             this.callbacks.delete(key);
         }
     },
-    _c);
-CreateJS.Point = class {
+    _d);
+CreateJS.Point = class CreateJS_Point {
     constructor(x, y) {
         this._fillColor = "white";
         this._strokeColor = "white";
@@ -736,7 +861,7 @@ CreateJS.Point = class {
             c.fill();
     }
 };
-CreateJS.Line = class {
+CreateJS.Line = class CreateJS_Line {
     constructor(x1, y1, x2, y2) {
         this.x1 = x1;
         this.y1 = y1;
@@ -772,7 +897,7 @@ CreateJS.Line = class {
         return new CreateJS.Vec2(this.x2 - this.x1, this.y2 - this.y1);
     }
 };
-CreateJS.Shape = (_d = class {
+CreateJS.Shape = (_e = class CreateJS_Shape {
         constructor(x, y) {
             this._fillColor = "white";
             this._strokeColor = "white";
@@ -811,15 +936,14 @@ CreateJS.Shape = (_d = class {
             throw new Error("Function not implemented");
         }
     },
-    __setFunctionName(_d, "Shape"),
-    _d.Anchors = {
+    _e.Anchors = {
         TopLeft: "TopLeft",
         TopRight: "TopRight",
         BottomRight: "BottomRight",
         BottomLeft: "BottomLeft"
     },
-    _d);
-CreateJS.ConvexPolygon = class extends CreateJS.Shape {
+    _e);
+CreateJS.ConvexPolygon = class CreateJS_ConvexPolygon extends CreateJS.Shape {
     constructor(x, y, ...args) {
         super(x, y);
         this.points = [];
@@ -998,6 +1122,15 @@ CreateJS.ConvexPolygon = class extends CreateJS.Shape {
         }
         return true;
     }
+    getSides() {
+        const points = this.getVerticesPositions();
+        const sides = [];
+        const n = points.length;
+        for (let i = 0; i < n; i++) {
+            sides.push({ a: new CreateJS.Vec2(points[i].x, points[i].y), b: new CreateJS.Vec2(points[(i + 1) % n].x, points[(i + 1) % n].y) });
+        }
+        return sides;
+    }
     intersectsWith(other) {
         const axesA = this.getNormals();
         const axesB = other.getNormals();
@@ -1052,24 +1185,20 @@ CreateJS.ConvexPolygon = class extends CreateJS.Shape {
         };
     }
     containsPoint(point) {
-        const vertices = this.getVerticesPositions();
-        let sign = 0;
-        for (let i = 0; i < vertices.length; i++) {
-            const v0 = vertices[i];
-            const v1 = vertices[(i + 1) % vertices.length];
-            const edge = v1.sub(v0);
-            const toPoint = point.sub(v0);
-            const cross = edge.cross(toPoint);
-            if (cross !== 0) {
-                if (sign === 0) {
-                    sign = Math.sign(cross);
-                }
-                else if (Math.sign(cross) !== sign) {
-                    return false;
-                }
+        const sides = this.getSides();
+        let count = 0;
+        const x = point.x;
+        const y = point.y;
+        sides.forEach(side => {
+            const x1 = side.a.x;
+            const x2 = side.b.x;
+            const y1 = side.a.y;
+            const y2 = side.b.y;
+            if (y < y1 !== y < y2 && x < (x2 - x1) * (y - y1) / (y2 - y1) + x1) {
+                count++;
             }
-        }
-        return true;
+        });
+        return count % 2 !== 0;
     }
     project(axis) {
         let min = Infinity;
@@ -1082,9 +1211,6 @@ CreateJS.ConvexPolygon = class extends CreateJS.Shape {
                 max = projection;
         }
         return { min, max };
-    }
-    copy() {
-        return new CreateJS.ConvexPolygon(this.position.x, this.position.y, ...this.points);
     }
     scaleTo(area) {
         const currentArea = this.area(); // Your polygon's current area
@@ -1101,17 +1227,13 @@ CreateJS.ConvexPolygon = class extends CreateJS.Shape {
         return this;
     }
     isOnTopOf(shape) {
-        const epsilon = 1e-5;
-        const minYA = Math.min(...this.getVerticesPositions().map(p => p.y));
-        const maxYB = Math.max(...shape.getVerticesPositions().map(p => p.y));
-        const minXA = Math.min(...this.getVerticesPositions().map(p => p.x));
-        const maxXA = Math.max(...this.getVerticesPositions().map(p => p.x));
-        const minXB = Math.min(...shape.getVerticesPositions().map(p => p.x));
-        const maxXB = Math.max(...shape.getVerticesPositions().map(p => p.x));
-        const verticallyAligned = Math.abs(minYA - maxYB) < epsilon;
-        console.log(minYA, maxYB);
-        const horizontallyOverlapping = !(maxXA < minXB || minXA > maxXB);
-        return verticallyAligned && horizontallyOverlapping;
+        const maxYA = Math.max(...(this.getVerticesPositions().map(p => p.y)));
+        const minYB = Math.min(...(shape.getVerticesPositions().map(p => p.y)));
+        const verticallyAligned = Math.abs(maxYA - minYB) < 1;
+        return verticallyAligned && this.intersectsWith(shape).collided;
+    }
+    clone() {
+        return deepCloneObject(this);
     }
     static createRect(x, y, w, h) {
         const points = [
@@ -1154,7 +1276,7 @@ CreateJS.ConvexPolygon = class extends CreateJS.Shape {
         return new CreateJS.ConvexPolygon(hullPoints[0].x, hullPoints[0].y, ...hullPoints.map(point => point.clone().sub(hullPoints[0])));
     }
 };
-CreateJS.Physics = (_e = class {
+CreateJS.Physics = (_f = class CreateJS_Physics {
         constructor() {
             this._bodies = [];
             this.gravity = new CreateJS.Vec2(0, 0);
@@ -1182,58 +1304,65 @@ CreateJS.Physics = (_e = class {
         applyJumpTo(body, force, condition) {
             let canJump = !condition;
             this._bodies.forEach(b => {
-                if (body === b)
+                if (b === body)
                     return;
-                if (condition && condition(body, b)) {
+                if (condition && condition(body, b) && canJump === false) {
                     canJump = true;
                 }
             });
             if (canJump) {
-                body.applyForce(this.gravity.clone().mul(body.mass).mul(new CreateJS.Vec2(0, -(force + 1))));
-                console.log(body.force);
+                body.applyForce(this.gravity.clone().mul(body.mass).mul(-force));
             }
         }
         penetrationResolution(A, B, collisionInfo) {
             if (!collisionInfo.collided)
                 return;
-            const correction = collisionInfo.normal.clone().mul(collisionInfo.depth / (A.inverseMass + B.inverseMass));
-            A.position.sub(correction.mul(A.inverseMass));
-            B.position.add(correction.mul(B.inverseMass));
+            const slop = 0.01; // allow small overlap
+            const percent = 1; // dampen correction
+            const penetration = Math.max(collisionInfo.depth - slop, 0);
+            const correction = collisionInfo.normal.clone().normalize().mul(penetration * 0.5 * percent);
+            if (!A.static)
+                A.position.sub(correction);
+            if (!B.static)
+                B.position.add(correction);
         }
         resolveVelocity(A, B, collisionInfo) {
             if (!collisionInfo.collided)
                 return;
-            const relativeVelocity = B.velocity.clone().sub(A.velocity);
-            const velAlongNormal = relativeVelocity.dot(collisionInfo.normal);
+            const relVel = B.velocity.clone().sub(A.velocity);
+            const velAlongNormal = relVel.dot(collisionInfo.normal);
             if (velAlongNormal > 0)
                 return;
-            const elasticity = Math.min(A.elasticity, B.elasticity);
-            const impulseMag = -(1 + elasticity) * velAlongNormal / (A.inverseMass + B.inverseMass);
+            const restitution = Math.min(A.elasticity, B.elasticity);
+            const impulseMag = -(1 + restitution) * velAlongNormal / (A.inverseMass + B.inverseMass);
             const impulse = collisionInfo.normal.clone().mul(impulseMag);
-            A.velocity.sub(impulse.mul(A.inverseMass));
-            B.velocity.add(impulse.mul(B.inverseMass));
+            if (!A.static)
+                A.velocity.sub(impulse.clone().mul(A.inverseMass));
+            if (!B.static)
+                B.velocity.add(impulse.clone().mul(B.inverseMass));
         }
         update(dt) {
-            this._bodies.forEach(body => {
+            this._bodies.forEach((body) => {
                 if (!body.static) {
                     body.applyForce(this.gravity.clone().mul(body.mass));
                     body.step(dt);
                 }
-                for (let i = 0; i < 3; i++)
-                    this._bodies.forEach(body2 => {
-                        if (body === body2)
-                            return;
+            });
+            for (let i = 0; i < 12; i++) {
+                this._bodies.forEach((body, index) => {
+                    for (let i = index + 1; i < this._bodies.length; i++) {
+                        const body2 = this._bodies[i];
                         const collisionInfo = body.intersectsWith(body2);
                         if (collisionInfo.collided) {
                             this.penetrationResolution(body, body2, collisionInfo);
                             this.resolveVelocity(body, body2, collisionInfo);
                         }
-                    });
-            });
+                    }
+                });
+            }
         }
     },
-    __setFunctionName(_e, "Physics"),
-    _e.Rigidbody = class extends CreateJS.ConvexPolygon {
+    _f.Rigidbody = class Physics_Rigidbody extends CreateJS.ConvexPolygon {
         constructor(isStatic, x, y, ...args) {
             let xNum;
             let yNum;
@@ -1254,16 +1383,16 @@ CreateJS.Physics = (_e = class {
             this.mass = 1;
             this.velocity = new CreateJS.Vec2(0, 0);
             this.acceleration = new CreateJS.Vec2(0, 0);
-            this.elasticity = 0.5;
-            this.friction = 0.02;
+            this.elasticity = 0;
+            this.friction = 0.95;
             this.dragArea = 1;
             this.dragCoefficient = 1.2;
-            this.angularDamping = 0.98;
+            this.angularDamping = 0.95;
             this.angularVelocity = 0;
             this.momentOfInertia = 0;
             this.force = new CreateJS.Vec2();
             if (polygon) {
-                Object.assign(this, polygon);
+                Object.assign(this, deepCloneObject(polygon));
             }
             this.static = isStatic;
             if (this.static)
@@ -1295,6 +1424,10 @@ CreateJS.Physics = (_e = class {
         }
         setElasticity(elasticity) {
             this.elasticity = elasticity;
+            return this;
+        }
+        setFriction(friction) {
+            this.friction = friction;
             return this;
         }
         applyForce(force) {
@@ -1349,32 +1482,47 @@ CreateJS.Physics = (_e = class {
             }
             return (this.mass / 6) * (numerator / denominator);
         }
+        nextStepIntersectsWith(body) {
+            const thisClone = this.clone();
+            const bodyClone = body.clone();
+            thisClone.step(1);
+            bodyClone.step(1);
+            return thisClone.intersectsWith(bodyClone);
+        }
         step(dt) {
             this.acceleration.set(this.force.clone().div(this.mass));
             this.velocity.add(this.acceleration.clone());
-            if (this.velocity.length() < 0.01) {
+            if (this.velocity.length() < 0.1) {
                 this.velocity.zero();
             }
             this.position.add(this.velocity.clone());
-            this.velocity.mul(1 - this.friction);
+            this.velocity.mul(new CreateJS.Vec2(this.friction, 1));
             this.force.zero();
             return this;
         }
     },
-    _e);
-CreateJS.Image = class {
-    constructor(img, frameWidth = 0, frameHeight = 0, frameTime = 0) {
+    _f);
+CreateJS.Image = class CreateJS_Image {
+    constructor(img, isStatic = true, frameWidth = 0, frameHeight = 0, frameTime = 0) {
         this.canvas = document.createElement("canvas");
         this.c = this.canvas.getContext("2d");
+        this.isStatic = true;
         this.currentFrame = 0;
         this.image = img;
         this.frameWidth = frameWidth;
         this.frameHeight = frameHeight;
         this.frameTime = frameTime;
+        this.isStatic = isStatic;
         if (this.image)
             this.frames = Math.floor(this.image.width / this.frameWidth);
         else
             this.frames = 1;
+        if (this.isStatic) {
+            if (this.image) {
+                this.frameWidth = this.image.width;
+                this.frameHeight = this.image.height;
+            }
+        }
         this.canvas.width = this.frameWidth;
         this.canvas.height = this.frameHeight;
         this.canvas.style.cssText = `
@@ -1384,14 +1532,18 @@ CreateJS.Image = class {
     }
     nextFrame() {
         this.c.clearRect(0, 0, this.frameWidth, this.frameHeight);
-        if (this.image) {
-            this.c.drawImage(this.image, this.frameWidth * this.currentFrame, 0, this.frameWidth, this.frameHeight, 0, 0, this.frameWidth, this.frameHeight);
-            this.currentFrame = (this.currentFrame + 1) % this.frames;
+        if (!this.image)
+            return this.canvas;
+        if (this.isStatic) {
+            this.c.drawImage(this.image, 0, 0);
+            return this.canvas;
         }
+        this.c.drawImage(this.image, this.frameWidth * this.currentFrame, 0, this.frameWidth, this.frameHeight, 0, 0, this.frameWidth, this.frameHeight);
+        this.currentFrame = (this.currentFrame + 1) % this.frames;
         return this.canvas;
     }
 };
-CreateJS.Sprite = class extends CreateJS.Physics.Rigidbody {
+CreateJS.Sprite = class CreateJS_Sprite extends CreateJS.Physics.Rigidbody {
     constructor(isStatic, x, y, ...args) {
         let xNum;
         let yNum;
@@ -1413,16 +1565,17 @@ CreateJS.Sprite = class extends CreateJS.Physics.Rigidbody {
         this.frame = document.createElement("canvas");
         this.canDrawFrame = true;
         if (polygon) {
-            Object.assign(this, polygon);
+            Object.assign(this, deepCloneObject(polygon));
         }
     }
     setImage(image) {
         this.image = image;
+        return this;
     }
     draw(c) {
         super.draw(c);
         if (this.image.image) {
-            if (this.canDrawFrame) {
+            if (this.canDrawFrame && !this.image.isStatic) {
                 this.canDrawFrame = false;
                 this.frame = this.image.nextFrame();
                 setTimeout(() => {
@@ -1430,6 +1583,9 @@ CreateJS.Sprite = class extends CreateJS.Physics.Rigidbody {
                 }, this.image.frameTime);
             }
             ;
+            if (this.image.isStatic) {
+                this.frame = this.image.nextFrame();
+            }
             const bounding = this.getBoundingBox();
             const points = bounding.getVerticesPositions();
             const pointsX = points.map(p => p.x);
@@ -1442,7 +1598,7 @@ CreateJS.Sprite = class extends CreateJS.Physics.Rigidbody {
         }
     }
 };
-CreateJS.TimeHandler = (_f = class {
+CreateJS.TimeHandler = (_g = class CreateJS_TimeHandler {
         static wait(ms) {
             return new Promise((resolve, reject) => {
                 setTimeout(() => {
@@ -1484,11 +1640,10 @@ CreateJS.TimeHandler = (_f = class {
             CreateJS.TimeHandler._pause = false;
         }
     },
-    __setFunctionName(_f, "TimeHandler"),
-    _f.timeBefore = 0,
-    _f._stop = false,
-    _f._pause = false,
-    _f.Preload = class {
+    _g.timeBefore = 0,
+    _g._stop = false,
+    _g._pause = false,
+    _g.Preload = class Preload {
         static images(urls) {
             return __awaiter(this, void 0, void 0, function* () {
                 const images = urls.map(url => this.loadImage(url));
@@ -1496,6 +1651,17 @@ CreateJS.TimeHandler = (_f = class {
                 const object = {};
                 loadedImages.forEach((image, index) => {
                     object[urls[index]] = image;
+                });
+                return object;
+            });
+        }
+        static sounds(urls) {
+            return __awaiter(this, void 0, void 0, function* () {
+                const sounds = urls.map(url => this.loadSound(url));
+                const loadedSounds = yield Promise.all(sounds);
+                const object = {};
+                loadedSounds.forEach((sound, index) => {
+                    object[urls[index]] = sound;
                 });
                 return object;
             });
@@ -1508,6 +1674,15 @@ CreateJS.TimeHandler = (_f = class {
                 img.src = url;
             });
         }
+        static loadSound(url) {
+            return new Promise((resolve, reject) => {
+                const audio = new Audio(url);
+                audio.onloadeddata = () => {
+                    resolve(audio);
+                };
+                audio.onerror = reject;
+            });
+        }
     },
-    _f);
+    _g);
 export default CreateJS;

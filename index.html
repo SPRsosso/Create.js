@@ -3,10 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Game.js</title>
+    <title>Create.js</title>
     <script src="./js/main.js" type="module" defer></script>
+    <style>
+        #dragable-box {
+            width: 200px;
+            height: 200px;
+            background-color: lime;
+
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            z-index: 1;
+        }
+    </style>
 </head>
 <body>
+    <div id="dragable-box"></div>
     <canvas class="game-area"></canvas>
 </body>
 </html>
