@@ -1,0 +1,826 @@
+static Physics = class CreateJS_Physics {
+    static Rigidbody = class Physics_Rigidbody extends CreateJS.ConvexPolygon {
+        protected velocity: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
+        protected acceleration: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
+        protected force: CreateJS.Vec2 = new CreateJS.Vec2(0, 0);
+
+        protected inverseMass: number = 0;
+
+        constructor(polygon: CreateJS.ConvexPolygon);
+        constructor(x: number, y: number, ...args: CreateJS.Vec2[]);
+        constructor(x: number | CreateJS.ConvexPolygon, y?: number, ...args: CreateJS.Vec2[]) {
+            let xNum;
+            let yNum;
+            let points: CreateJS.Vec2[] = [];
+
+            let polygon: CreateJS.ConvexPolygon | undefined;
+            if (typeof x === "object") {
+                xNum = x.x;
+                yNum = x.y;
+                points = x.points;
+
+                polygon = x;
+            } else {
+                xNum = x;
+                yNum = y as number;
+                points = args;
+            }
+            
+            super(xNum, yNum, ...points);
+            
+            if (polygon) {
+                Object.assign(this, deepCloneObject(polygon));
+            }
+        }
+
+        setInverseMass(inverseMass: number) {
+            this.inverseMass = inverseMass;
+        }
+
+        getInverseMass(): number {
+            return this.inverseMass;
+        }
+
+        setMass(mass: number) {
+            this.inverseMass = 1 / mass;
+        }
+
+        getMass(): number {
+            return 1 / this.inverseMass;
+        }
+
+        setPosition(position: CreateJS.Vec2) {
+            this.position.set(position);
+        }
+
+        getPosition(): CreateJS.Vec2 {
+            return this.position.clone();
+        }
+
+        setVelocity(velocity: CreateJS.Vec2) {
+            this.velocity.set(velocity);
+        }
+
+        getVelocity(): CreateJS.Vec2 {
+            return this.velocity.clone();
+        }
+
+        setAcceleration(acceleration: CreateJS.Vec2) {
+            this.acceleration.set(acceleration);
+        }
+
+        getAcceleration(): CreateJS.Vec2 {
+            return this.acceleration.clone();
+        }
+
+        hasFiniteMass(): boolean {
+            return this.inverseMass !== 0;
+        }
+
+        addForce(force: CreateJS.Vec2) {
+            this.force.add(force);
+        }
+
+        update(time: number) {
+            if (time <= 0) return;
+            if (!this.hasFiniteMass()) return;
+
+            this.position.add(this.velocity.clone().mul(time));
+
+            const resultingAcceleration = this.acceleration.clone();
+            resultingAcceleration.add(this.force.clone().mul(this.inverseMass));
+
+            this.velocity.add(resultingAcceleration.clone().mul(time));
+
+            this.force.zero();
+        }
+    }
+
+    static ForceGenerator = class Physics_ForceGenerator {
+        constructor() {}
+        
+        updateForce(rigidbody: CreateJS.Physics.Rigidbody, time: number): void {}
+    }
+
+    static ForceRegistry = class Physics_ForceRegistry {
+        static ForceRegistration = class ForceRegistry_ForceRegistration {
+            rigidbody: CreateJS.Physics.Rigidbody;
+            forceGenerator: CreateJS.Physics.ForceGenerator;
+
+            constructor(rigidbody: CreateJS.Physics.Rigidbody, forceGenerator: CreateJS.Physics.ForceGenerator) {
+                this.rigidbody = rigidbody;
+                this.forceGenerator = forceGenerator;
+            }
+        }
+
+        registrations: CreateJS.Physics.ForceRegistry.ForceRegistration[] = [];
+
+        constructor() {}
+
+        add(rigidbody: CreateJS.Physics.Rigidbody, forceGenerator: CreateJS.Physics.ForceGenerator): void {
+            this.registrations.push(new CreateJS.Physics.ForceRegistry.ForceRegistration(rigidbody, forceGenerator));
+        }
+
+        remove(rigidbody: CreateJS.Physics.Rigidbody, forceGenerator: CreateJS.Physics.ForceGenerator): void {
+            delete this.registrations[this.registrations.findIndex(registration => registration.rigidbody === rigidbody && registration.forceGenerator === forceGenerator)];
+        }
+
+        clear(): void {
+            this.registrations.length = 0;
+        }
+
+        updateForces(time: number): void {
+            this.registrations.forEach(registration => {
+                registration.forceGenerator.updateForce(registration.rigidbody, time);
+            });
+        }
+    }
+
+    static GravityGenerator = class Physics_GravityGenerator extends this.ForceGenerator {
+        gravity: CreateJS.Vec2;
+
+        constructor(gravity: CreateJS.Vec2) {
+            super();
+            this.gravity = gravity;
+        }
+
+        override updateForce(rigidbody: CreateJS.Physics.Rigidbody, time: number): void {
+            if (!rigidbody.hasFiniteMass()) return;
+
+            rigidbody.addForce(this.gravity.clone().mul(rigidbody.getMass()));
+        }
+    }
+
+    static DragGenerator = class Physics_DragGenerator extends this.ForceGenerator {
+        k1: number;
+        k2: number;
+
+        constructor(k1: number, k2: number) {
+            super();
+
+            this.k1 = k1;
+            this.k2 = k2;
+        }
+
+        override updateForce(rigidbody: CreateJS.Physics.Rigidbody, time: number): void {
+            let force: CreateJS.Vec2 = rigidbody.getVelocity().clone();
+            let dragCoeff = force.length();
+            dragCoeff = this.k1 * dragCoeff + this.k2 * dragCoeff * dragCoeff;
+
+            if (!force.isZero()) force.normalize();
+            force.mul(-dragCoeff);
+            rigidbody.addForce(force);
+        }
+    }
+
+    static RigidbodyContact = class Physics_RigidbodyContact {
+        rigidbodies: { A: CreateJS.Physics.Rigidbody, B: CreateJS.Physics.Rigidbody | null };
+        contactNormal: CreateJS.Vec2 = new CreateJS.Vec2();
+        restitution: number = 0.5;
+        penetration: number = 0;
+
+        constructor(rigidbodyA: CreateJS.Physics.Rigidbody, rigidbodyB: CreateJS.Physics.Rigidbody | null = null) {
+            this.rigidbodies = {
+                A: rigidbodyA,
+                B: rigidbodyB
+            }
+        }
+
+        resolve(time: number): void {
+            this.resolveVelocity(time);
+            this.resolveInterpenetration(time);
+        }
+
+        private calculateSeparatingVelocity(): number | undefined {
+            const relativeVelocity = this.rigidbodies.A.getVelocity();
+            if (this.rigidbodies.B) relativeVelocity.sub(this.rigidbodies.B.getVelocity());
+
+            return relativeVelocity.dot(this.contactNormal);
+        }
+
+        private resolveInterpenetration(time: number): void {
+            if (this.penetration <= 0) return;
+
+            let totalInverseMass = this.rigidbodies.A.getInverseMass();
+            if (this.rigidbodies.B) totalInverseMass += this.rigidbodies.B.getInverseMass();
+
+            if (totalInverseMass <= 0) return;
+
+            const movePerIMass = this.contactNormal.clone().mul(-this.penetration / totalInverseMass);
+
+            this.rigidbodies.A.setPosition(
+                this.rigidbodies.A.getPosition()
+                                    .add(movePerIMass.clone().mul(this.rigidbodies.A.getInverseMass()))
+            );
+            if (this.rigidbodies.B) {
+                this.rigidbodies.B.setPosition(
+                    this.rigidbodies.B.getPosition()
+                                        .add(movePerIMass.clone().mul(this.rigidbodies.B.getInverseMass()))
+                );
+            }
+        }
+
+        private resolveVelocity(time: number): void {
+            const separatingVelocity = this.calculateSeparatingVelocity();
+
+            if (!separatingVelocity || separatingVelocity && separatingVelocity > 0) {
+                return;
+            }
+
+            let newSepVelocity = -separatingVelocity * this.restitution;
+
+            const accCausedVelocity = this.rigidbodies.A.getAcceleration();
+            if (this.rigidbodies.B) accCausedVelocity.add(this.rigidbodies.B.getAcceleration());
+            const accCausedSepVelocity = accCausedVelocity.dot(this.contactNormal) * time;
+
+            if (accCausedSepVelocity < 0) {
+                newSepVelocity += this.restitution * accCausedSepVelocity;
+
+                if (newSepVelocity < 0) newSepVelocity = 0;
+            }
+
+            const deltaVelocity = newSepVelocity - separatingVelocity;
+            
+            let totalInverseMass = this.rigidbodies.A.getInverseMass();
+            if (this.rigidbodies.B) totalInverseMass += this.rigidbodies.B.getInverseMass();
+
+            if (totalInverseMass <= 0) return;
+
+            const impulse = deltaVelocity / totalInverseMass;
+            const impulsePerIMass = this.contactNormal.clone().mul(impulse);
+
+            this.rigidbodies.A.setVelocity(
+                this.rigidbodies.A.getVelocity()
+                                    .add(impulsePerIMass.clone().mul(this.rigidbodies.A.getInverseMass()))
+            );
+            if (this.rigidbodies.B) {
+                this.rigidbodies.B.setVelocity(
+                    this.rigidbodies.B.getVelocity()
+                                        .add(impulsePerIMass.clone().mul(-this.rigidbodies.B.getInverseMass()))
+                );
+            }
+        }
+    }
+
+    private _bodies: CreateJS.Physics.Rigidbody[] = [];
+    private forceRegistry: CreateJS.Physics.ForceRegistry = new CreateJS.Physics.ForceRegistry();
+    private gravityGenerator = new CreateJS.Physics.GravityGenerator(new CreateJS.Vec2());
+    private dragGenerator = new CreateJS.Physics.DragGenerator(0.05, 0.001);
+
+    constructor() {}
+
+    addBody(...bodies: CreateJS.Physics.Rigidbody[]): CreateJS.Physics {
+        this._bodies.push(...bodies);
+        this._bodies.forEach(body => {
+            this.forceRegistry.add(body, this.gravityGenerator);
+            this.forceRegistry.add(body, this.dragGenerator);
+        });
+        return this;
+    }
+
+    removeBody(index: number, deleteCount: number = 0): CreateJS.Physics {
+        this._bodies.splice(index, deleteCount);
+        return this;
+    }
+
+    clearBodies(): CreateJS.Physics {
+        this._bodies.length = 0;
+        return this;
+    }
+
+    applyJumpTo(body: CreateJS.Physics.Rigidbody, force: number, condition?: ( currentBody: CreateJS.Physics.Rigidbody, otherBody: CreateJS.Physics.Rigidbody ) => boolean): void {
+        let canJump = !condition;
+        this._bodies.forEach(b => {
+            if (b === body) return;
+
+            if (condition && condition(body, b) && canJump === false) {
+                canJump = true;
+            }
+        });
+        
+        if (canJump) {
+            
+        }
+    }
+
+    setGravity(gravity: CreateJS.Vec2): CreateJS.Physics {
+        this.gravityGenerator.gravity = gravity;
+        return this;
+    }
+
+    update(dt: number): void {
+        const rigidbodyContacts: CreateJS.Physics.RigidbodyContact[] = []
+        
+        this._bodies.forEach(( body ) => {
+            this.forceRegistry.updateForces(dt);
+            body.update(dt);
+        });
+
+        for (let i = 0; i < this._bodies.length; i++) {
+            const body = this._bodies[i];
+            for (let j = i; j < this._bodies.length; j++) {
+                const body2 = this._bodies[j];
+                const collisionInfo = body.intersectsWith(body2);
+
+                if (collisionInfo.collided) {
+                    const contact = new CreateJS.Physics.RigidbodyContact(body, body2)
+                    contact.contactNormal = collisionInfo.normal;
+                    contact.penetration = collisionInfo.depth;
+                    contact.restitution = 0;
+                    rigidbodyContacts.push(contact);
+                }
+            }
+        }
+
+        rigidbodyContacts.forEach(contact => {
+            contact.resolve(dt);
+        })
+    }
+}
+
+static Sprite = class CreateJS_Sprite extends CreateJS.Physics.Rigidbody {
+    image: CreateJS.Image = new CreateJS.Image();
+    protected frame: HTMLCanvasElement = document.createElement("canvas");
+    protected canDrawFrame: boolean = true;
+    protected debug: boolean;
+    protected timeout?: number;
+
+    size: CreateJS.Vec2;
+    hitbox: CreateJS.ConvexPolygon[] = [];
+
+    constructor(x: number, y: number, width: number, height: number, image: CreateJS.Image, hitbox: CreateJS.ConvexPolygon[], debug: boolean = false) {
+        super(CreateJS.ConvexPolygon.createRect(x, y, width, height))
+        this.position = new CreateJS.Vec2(x, y);
+        this.size = new CreateJS.Vec2(width, height);
+        hitbox.forEach(hb => {
+            this.hitbox.push(deepCloneObject(hb));
+            this.bind(hb);
+        })
+        
+        this.debug = debug;
+    }
+
+    get width(): number {
+        return this.size.x;
+    }
+
+    get height(): number {
+        return this.size.y;
+    }
+
+    setImage(image: CreateJS.Image): typeof this {
+        this.image = image;
+        this.canDrawFrame = true;
+        clearTimeout(this.timeout);
+        return this;
+    }
+
+    addHitbox(...hitbox: CreateJS.ConvexPolygon[]) {
+        hitbox.forEach(hb => {
+            this.hitbox.push(deepCloneObject(hb));
+            this.bind(hb);
+        });
+    }
+
+    draw(c: CanvasRenderingContext2D) {
+        if (this.debug) {
+            this.hitbox.forEach(hitbox => {
+                hitbox.fill(false).strokeColor("red").strokeWidth(2).stroke();
+                hitbox.draw(c);   
+            })
+        }
+
+        if (this.image.image) {
+            if (this.canDrawFrame && !this.image.isStatic) {
+                this.canDrawFrame = false;
+
+                this.frame = this.image.nextFrame();
+
+                this.timeout = setTimeout(() => {
+                    this.canDrawFrame = true;
+                }, this.image.frameTime);
+            };
+
+            if (this.image.isStatic) {
+                this.frame = this.image.nextFrame();
+            }
+
+            c.drawImage(this.frame, this.position.x, this.position.y, this.width, this.height);
+        }
+    }
+}
+
+static ConvexPolygon = class CreateJS_ConvexPolygon extends CreateJS.Shape {
+    points: CreateJS.Vec2[] = [];
+    private _minScale: number = -Infinity;
+    private _maxScale: number = Infinity;
+    
+    constructor(x: number, y: number, ...args: CreateJS.Vec2[]) {
+        super(x, y);
+        this.points = args;
+    }
+
+    draw(c: CanvasRenderingContext2D) {
+        c.beginPath();
+        for (let i = 0; i < this.points.length; i++) {
+            const pointPosition = this.position.clone().add(this.points[i]);
+            c.lineTo(pointPosition.x, pointPosition.y);
+        }
+        c.closePath();
+        c.lineWidth = this._strokeWidth;
+        c.fillStyle = this._fillColor;
+        c.strokeStyle = this._strokeColor;
+        if (this._fill) c.fill();
+        if (this._stroke) c.stroke();
+    }
+
+    center(): CreateJS.Vec2 {
+        let area = 0;
+        let cx = 0;
+        let cy = 0;
+
+        const n = this.points.length;
+        for (let i = 0; i < n; i++) {
+            const curr = this.points[i].clone().add(this.position);
+            const next = this.points[(i + 1) % n].clone().add(this.position);
+            const cross = curr.cross(next);
+
+            area += cross;
+            cx += (curr.x + next.x) * cross;
+            cy += (curr.y + next.y) * cross;
+        }
+
+        area *= 0.5;
+        if (area === 0) {
+            throw new Error("Polygon has zero area (possibly degenerate)");
+        }
+
+        cx /= 6 * area;
+        cy /= 6 * area;
+        
+        return new CreateJS.Vec2(cx, cy);
+    }
+
+    translate(x: number, y: number): CreateJS.ConvexPolygon {
+        this.position.add(new CreateJS.Vec2(x, y));
+        return this;
+    }
+
+    scaleFrom(factor: number, origin?: CreateJS.Vec2): CreateJS.ConvexPolygon;
+    scaleFrom(sizeVec: CreateJS.Vec2, origin?: CreateJS.Vec2): CreateJS.ConvexPolygon;
+    scaleFrom(factor: number | CreateJS.Vec2, origin: CreateJS.Vec2 = this.center()): CreateJS.ConvexPolygon {
+        if (typeof factor === "number") {
+            this.points.forEach(v => {
+                v.add(this.position).sub(origin).mul(factor as number).add(this.position.vectorTo(origin));
+            });
+
+            if (this.area() * factor < this._minScale) {
+                this.scaleTo(this._minScale);
+            }
+            if (this.area() * factor > this._maxScale) {
+                this.scaleTo(this._maxScale);
+            }
+        } else if (typeof factor === "object") {
+            this.points.forEach(v => {
+                v.add(this.position).sub(origin).mul(factor as CreateJS.Vec2).add(this.position.vectorTo(origin));
+            });
+
+            if ((this.area() * factor.x < this._minScale || this.area() * factor.y < this._minScale)) {
+                this.scaleTo(this._minScale);
+            }
+            if ((this.area() * factor.x > this._maxScale || this.area() * factor.y > this._maxScale)) {
+                this.scaleTo(this._maxScale);
+            }
+        }
+
+        return this;
+    }
+
+    getVerticesPositions(): CreateJS.Vec2[] {
+        return this.points.map(p => p.clone().add(this.position));
+    }
+
+    getBoundingBox(): CreateJS.ConvexPolygon {
+        let minX = Infinity, minY = Infinity;
+        let maxX = -Infinity, maxY = -Infinity;
+
+        for (const v of this.points) {
+            if (v.x < minX) minX = v.x;
+            if (v.y < minY) minY = v.y;
+            if (v.x > maxX) maxX = v.x;
+            if (v.y > maxY) maxY = v.y;
+        }
+
+        return CreateJS.ConvexPolygon.createRect(this.position.x + minX, this.position.y + minY, maxX - minX, maxY - minY);
+    }
+
+    getNormals(): CreateJS.Vec2[] {
+        const normals: CreateJS.Vec2[] = [];
+
+        for (let i = 0; i < this.points.length; i++) {
+            const current = this.points[i].clone();
+            const next = this.points[(i + 1) % this.points.length].clone();
+            const edge = next.sub(current);
+
+            const normal = edge.perpendicular().normalize();
+            normals.push(normal);
+        }
+
+        return normals;
+    }
+
+    area(): number {
+        let total = 0;
+        const n = this.points.length;
+
+        for (let i = 0; i < n; i++) {
+            const current = this.points[i];
+            const next = this.points[(i + 1) % n];
+            total += current.x * next.y - next.x * current.y;
+        }
+
+        return Math.abs(total) / 2;
+    }
+
+    perimeter(): number {
+        let total = 0;
+        for (let i = 0; i < this.points.length; i++) {
+            const current = this.points[i];
+            const next = this.points[(i + 1) % this.points.length];
+
+            total += current.distanceTo(next);
+        }
+        return total;
+    }
+
+    rotate(angle: number, origin: CreateJS.Vec2 = this.center()): CreateJS.ConvexPolygon {
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+
+        this.points = this.points.map(p => {
+            const point = this.position.clone().add(p);
+            const dx = point.x - origin.x;
+            const dy = point.y - origin.y;
+
+            const rotated = new CreateJS.Vec2(
+                origin.x + dx * cos - dy * sin,
+                origin.y + dx * sin + dy * cos
+            );
+
+            return rotated.sub(this.position);
+        });
+
+        return this;
+    }
+
+    getClosestVertexTo(point: CreateJS.Vec2): CreateJS.Vec2 {
+        const points = this.getVerticesPositions();
+        let minDist = Infinity;
+        let minPoint: CreateJS.Vec2 = points[0];
+
+        for (let p of points) {
+            if (p.distanceTo(point) < minDist) {
+                minDist = p.distanceTo(point)
+                minPoint = p;
+            };
+        }
+
+        return minPoint;
+    }
+
+    getFarthestPointInDirection(dir: CreateJS.Vec2): CreateJS.Vec2 {
+        let farthest: CreateJS.Vec2 = this.getVerticesPositions()[0];
+        let maxDot = -Infinity;
+
+        for (let v of this.getVerticesPositions()) {
+            const dot = v.dot(dir);
+            if (dot > maxDot) {
+                maxDot = dot;
+                farthest = v;
+            }
+        }
+
+        return farthest;
+    }
+
+    isConvex(): boolean {
+        const verts = this.getVerticesPositions();
+        let sign = null;
+
+        for (let i = 0; i < verts.length; i++) {
+            const a = verts[i].clone();
+            const b = verts[(i + 1) % verts.length].clone();
+            const c = verts[(i + 2) % verts.length].clone();
+
+            const ab = b.clone().sub(a);
+            const bc = c.clone().sub(b);
+
+            const cross = ab.cross(bc);
+
+            if (cross !== 0) {
+                if (sign === null) {
+                    sign = Math.sign(cross);
+                } else if (Math.sign(cross) !== sign) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    getSides(): { a: CreateJS.Vec2, b: CreateJS.Vec2 }[] {
+        const points = this.getVerticesPositions();
+        const sides: { a: CreateJS.Vec2, b: CreateJS.Vec2 }[] = [];
+        const n = points.length;
+
+        for (let i = 0; i < n; i++) {
+            sides.push({ a: new CreateJS.Vec2(points[i].x, points[i].y), b: new CreateJS.Vec2(points[(i + 1) % n].x, points[(i + 1) % n].y) });
+        }
+
+        return sides;
+    }
+    
+    intersectsWith(other: CreateJS.ConvexPolygon): CreateJS.SATCollisionInfo {
+        const axesA = this.getNormals();
+        const axesB = other.getNormals();
+        const axes = axesA.concat(axesB);
+
+        let minOverlap = Infinity;
+        let smallestAxis: CreateJS.Vec2 | null = null;
+        
+        for (const axis of axes) {
+            const projA = this.project(axis);
+            const projB = other.project(axis);
+            
+            if (!(projA.max >= projB.min && projB.max >= projA.min)) {
+                return {
+                    collided: false
+                };
+            }
+
+            const overlap = Math.min(projA.max, projB.max) - Math.max(projA.min, projB.min);
+
+            if (overlap < minOverlap) {
+                minOverlap = overlap;
+                smallestAxis = axis;
+            }
+        }
+
+        if (!smallestAxis) {
+            return { collided: false };
+        }
+        
+        const centerDelta = other.center().sub(this.center());
+        if (centerDelta.dot(smallestAxis) < 0) {
+            smallestAxis = smallestAxis.mul(-1);
+        }
+
+        const contactPoints: CreateJS.Vec2[] = [];
+
+        for (const vertex of this.getVerticesPositions()) {
+            if (other.containsPoint(vertex)) {
+                contactPoints.push(vertex);
+            }
+        }
+
+        for (const vertex of other.getVerticesPositions()) {
+            if (this.containsPoint(vertex)) {
+                contactPoints.push(vertex);
+            }
+        }
+
+        let contactPoint: CreateJS.Vec2;
+        if (contactPoints.length > 0) {
+            const sum = contactPoints.reduce((acc, v) => acc.add(v), new CreateJS.Vec2(0, 0));
+            contactPoint = sum.mul(1 / contactPoints.length);
+        } else {
+            contactPoint = this.center().add(other.center()).mul(0.5);
+        }
+
+        return {
+            collided: true,
+            normal: smallestAxis.normalize(),
+            depth: minOverlap,
+            contactPoint: contactPoint
+        };
+    }
+
+    containsPoint(point: CreateJS.Vec2): boolean {
+        const sides = this.getSides();
+        let count = 0;
+        const x = point.x;
+        const y = point.y;
+
+
+        sides.forEach(side => {
+            const x1 = side.a.x;
+            const x2 = side.b.x;
+            const y1 = side.a.y;
+            const y2 = side.b.y;
+
+            if (y < y1 !== y < y2 && x < (x2 - x1) * (y - y1) / (y2 - y1) + x1) {
+                count++;
+            }
+        });
+        
+        return count % 2 !== 0;
+    }
+
+    project(axis: CreateJS.Vec2): { min: number, max: number } {
+        let min = Infinity;
+        let max = -Infinity;
+
+        for (let v of this.getVerticesPositions()) {
+            const projection = v.dot(axis);
+            if (projection < min) min = projection;
+            if (projection > max) max = projection;
+        }
+
+        return { min, max };
+    }
+    
+    scaleTo(area: number): CreateJS.ConvexPolygon {
+        const currentArea = this.area(); // Your polygon's current area
+
+        const factor = Math.sqrt(area / (currentArea === 0 ? 1 : currentArea));
+        this.scaleFrom(factor);
+
+        return this;
+    }
+
+    minScale(area: number): CreateJS.ConvexPolygon {
+        this._minScale = area;
+        return this;
+    }
+
+    maxScale(area: number): CreateJS.ConvexPolygon {
+        this._maxScale = area;
+        return this;
+    }
+
+    isOnTopOf(shape: CreateJS.ConvexPolygon): boolean {
+        const maxYA = Math.max(...(this.getVerticesPositions().map(p => p.y)));
+        const minYB = Math.min(...(shape.getVerticesPositions().map(p => p.y)));
+
+        const verticallyAligned = Math.abs(maxYA - minYB) < 1;
+
+        return verticallyAligned && this.intersectsWith(shape).collided;
+    }
+
+    clone(): typeof this {
+        return deepCloneObject(this);
+    }
+
+    static createRect(x: number, y: number, width: number, height: number): CreateJS.ConvexPolygon {
+        const points = [
+            new CreateJS.Vec2(0, 0),
+            new CreateJS.Vec2(width, 0),
+            new CreateJS.Vec2(width, height),
+            new CreateJS.Vec2(0, height)
+        ];
+        
+        return new CreateJS.ConvexPolygon(x, y, ...points);
+    }
+
+    static createCircle(x: number, y: number, radius: number, accuracy: number = 4) {
+        const degreePerStep = 360 / accuracy;
+        const rotatingVector = new CreateJS.Vec2().up();
+        const points: CreateJS.Vec2[] = [];
+
+        for (let i = 0; i < accuracy; i++) {
+            points.push(rotatingVector.clone().scaleTo(radius));
+            rotatingVector.rotate(CreateJS.Math.degToRad(degreePerStep));
+        }
+
+        return new CreateJS.ConvexPolygon(x, y, ...points);
+    }
+
+    static convexHull(points: CreateJS.Vec2[]): CreateJS.ConvexPolygon {
+        points = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
+
+        const cross = (o: CreateJS.Vec2, a: CreateJS.Vec2, b: CreateJS.Vec2): number =>
+            (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+
+        const lower = [];
+        for (let p of points) {
+            while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0)
+                lower.pop();
+            lower.push(p);
+        }
+
+        const upper = [];
+        for (let i = points.length - 1; i >= 0; i--) {
+            const p = points[i];
+            while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0)
+                upper.pop();
+            upper.push(p);
+        }
+
+        upper.pop();
+        lower.pop();
+
+        const hullPoints: CreateJS.Vec2[] = lower.concat(upper);
+        return new CreateJS.ConvexPolygon(hullPoints[0].x, hullPoints[0].y, ...hullPoints.map(point => point.clone().sub(hullPoints[0])));
+    }
+}
