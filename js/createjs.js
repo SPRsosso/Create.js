@@ -262,8 +262,7 @@ export class CreateJS {
                     && bindedObject instanceof CreateJS.Physics.Rigidbody) {
                     const vec = new CreateJS.Vec2(initialEvent.clientX, initialEvent.clientY);
                     if (CreateJS.mainThread) {
-                        console.log(vec, CreateJS.mainThread.translateOffset, initialBinded.position);
-                        vec.sub(CreateJS.mainThread.translateOffset);
+                        vec.sub(CreateJS.mainThread.initialOffset);
                     }
                     ;
                     if (initialBinded.containsPoint(vec)) {
@@ -575,6 +574,8 @@ export class CreateJS {
                     this._mouseMove = event;
                     this._initialEvent = event;
                     this._initialBinded = deepCloneObject(this._binded);
+                    if (CreateJS.mainThread)
+                        CreateJS.mainThread.initialOffset = CreateJS.mainThread.translateOffset;
                 });
                 addEventListener("mouseup", (event) => {
                     this._mouseUp = event;
@@ -771,7 +772,7 @@ export class CreateJS {
                     for (let key of this.heldKeys) {
                         if (this.callbacks.has(key)) {
                             if (this.callbacks.get(key).options.type === "hold") {
-                                this.callbacks.get(key).callback(this._binded);
+                                this.callbacks.get(key).callback(this, this._binded);
                             }
                         }
                     }
@@ -779,7 +780,7 @@ export class CreateJS {
                         if (this.callbacks.has(key)) {
                             if (this.pressedKeys.get(key)) {
                                 if (this.callbacks.get(key).options.type === "press") {
-                                    this.callbacks.get(key).callback(this._binded);
+                                    this.callbacks.get(key).callback(this, this._binded);
                                     this.pressedKeys.set(key, false);
                                 }
                             }
@@ -1085,6 +1086,9 @@ export class CreateJS {
         center() {
             return new CreateJS.Vec2(this.x + this.width / 2, this.y + this.height / 2);
         }
+        isOnTopOf(rect) {
+            return this.top() <= rect.top() && this.bottom() >= rect.top() && this.left() < rect.right() && this.right() > rect.left();
+        }
         draw(c) {
             c.beginPath();
             c.lineWidth = this._strokeWidth;
@@ -1103,7 +1107,7 @@ export class CreateJS {
             velocity = new CreateJS.Vec2();
             acceleration = new CreateJS.Vec2();
             drag = 0.9;
-            friction = 0.99;
+            friction = 0.8;
             isStatic;
             constructor(isStatic, x, y, width, height) {
                 let xNum, yNum, widthNum, heightNum;
@@ -1201,21 +1205,29 @@ export class CreateJS {
                     if (this === body)
                         return;
                     if (this.bottom() + this.velocity.y * time >= body.top() + body.velocity.y * time && this.bottom() <= body.top() && this.left() <= body.right() && this.right() >= body.left()) {
-                        this.position.add(new CreateJS.Vec2(0, body.top() + body.velocity.y - this.bottom()));
+                        if (!this.isStatic)
+                            this.position.add(new CreateJS.Vec2(0, body.top() + body.velocity.y - this.bottom()));
                         this.velocity.set(this.velocity.x, 0);
                     }
                     if (body.isStatic) {
+                        if (this.top() + this.velocity.y * time <= body.bottom() + body.velocity.y * time && this.top() >= body.bottom() && this.left() <= body.right() && this.right() >= body.left()) {
+                            if (!this.isStatic)
+                                this.position.add(new CreateJS.Vec2(0, body.bottom() - this.top()));
+                            this.velocity.set(this.velocity.x, -this.velocity.y * 0.5);
+                        }
                         if (this.left() + this.velocity.x * time <= body.right() + body.velocity.x * time && this.left() >= body.right() && this.top() <= body.bottom() && this.bottom() >= body.top()) {
-                            this.position.add(new CreateJS.Vec2(this.left() - body.right(), 0));
+                            if (!this.isStatic)
+                                this.position.add(new CreateJS.Vec2(body.right() - this.left(), 0));
                             this.velocity.set(0, this.velocity.y);
                         }
                         if (this.right() + this.velocity.x * time >= body.left() + body.velocity.x * time && this.right() <= body.left() && this.top() <= body.bottom() && this.bottom() >= body.top()) {
-                            this.position.add(new CreateJS.Vec2(body.left() - this.right(), 0));
+                            if (!this.isStatic)
+                                this.position.add(new CreateJS.Vec2(body.left() - this.right(), 0));
                             this.velocity.set(0, this.velocity.y);
                         }
                         const collides = this.collidesWith(body);
                         if (collides.collides) {
-                            const newPos = collides.normal.clone().mul(collides.depth);
+                            const newPos = collides.normal.clone().mul(collides.depth + 1);
                             this.position.add(newPos);
                         }
                     }
@@ -1241,6 +1253,17 @@ export class CreateJS {
         addBody(...bodies) {
             this.bodies.push(...bodies);
             return this;
+        }
+        applyJumpTo(body, multiplier, condition) {
+            let flag = false;
+            this.bodies.forEach(other => {
+                if (body === other)
+                    return;
+                if (condition(body, other))
+                    flag = true;
+            });
+            if (flag)
+                body.addAcceleration(this.gravity.clone().negate().add(this.gravity.clone().negate().mul(multiplier)));
         }
         update(time) {
             this.bodies.forEach(body => {
@@ -1294,6 +1317,10 @@ export class CreateJS {
             this.currentFrame = (this.currentFrame + 1) % this.frames;
             return this.canvas;
         }
+        is(img) {
+            return this.image === img.image && this.frameWidth === img.frameWidth
+                && this.frameHeight === img.frameHeight && this.frameTime === img.frameTime;
+        }
     };
     static Sprite = class CreateJS_Sprite extends CreateJS.Physics.Rigidbody {
         image = new CreateJS.Image();
@@ -1337,8 +1364,11 @@ export class CreateJS {
             return this.size.y;
         }
         setImage(image) {
-            this.image = image;
-            clearTimeout(this.timeout);
+            if (!this.image.is(image)) {
+                this.image = image;
+                clearTimeout(this.timeout);
+                this.canDrawFrame = true;
+            }
             return this;
         }
         addHitbox(...hitbox) {
@@ -1355,7 +1385,7 @@ export class CreateJS {
                     hitbox.draw(c);
                 });
             }
-            if (this.image.image) {
+            if (this.image?.image) {
                 if (this.canDrawFrame && !this.image.isStatic) {
                     this.canDrawFrame = false;
                     this.frame = this.image.nextFrame();
@@ -1368,6 +1398,77 @@ export class CreateJS {
                     this.frame = this.image.nextFrame();
                 }
                 c.drawImage(this.frame, this.x, this.y, this.width, this.height);
+            }
+        }
+    };
+    static Area = class CreateJS_Area extends CreateJS.Rect {
+        frame = document.createElement("canvas");
+        floorFrame = document.createElement("canvas");
+        canDrawFrame = true;
+        timeout;
+        floorTimeout;
+        canDrawFloorFrame = true;
+        threshold;
+        image;
+        floorImage;
+        floorWidth;
+        floorHeight;
+        constructor(x, y, width, height, image, floorImage, floorWidth, floorHeight, threshold) {
+            super(x, y, width, height);
+            this.threshold = threshold;
+            this.image = image;
+            this.floorImage = floorImage;
+            this.floorWidth = floorWidth;
+            this.floorHeight = floorHeight;
+        }
+        setImage(image) {
+            if (!this.image.is(image)) {
+                this.image = image;
+                clearTimeout(this.timeout);
+                this.canDrawFrame = true;
+            }
+            return this;
+        }
+        setFloorImage(image) {
+            if (!this.floorImage.is(image)) {
+                this.floorImage = image;
+                clearTimeout(this.floorTimeout);
+                this.canDrawFloorFrame = true;
+            }
+            return this;
+        }
+        draw(c) {
+            super.draw(c);
+            if (this.image?.image) {
+                if (this.canDrawFrame && !this.image.isStatic) {
+                    this.canDrawFrame = false;
+                    this.frame = this.image.nextFrame();
+                    this.timeout = setTimeout(() => {
+                        this.canDrawFrame = true;
+                    }, this.image.frameTime);
+                }
+                ;
+                if (this.image.isStatic) {
+                    this.frame = this.image.nextFrame();
+                }
+                c.drawImage(this.frame, this.x, this.y, this.width, this.height);
+            }
+            if (this.floorImage?.image) {
+                if (this.canDrawFloorFrame && !this.image.isStatic) {
+                    this.canDrawFloorFrame = false;
+                    this.floorFrame = this.image.nextFrame();
+                    this.timeout = setTimeout(() => {
+                        this.canDrawFloorFrame = true;
+                    }, this.image.frameTime);
+                }
+                ;
+                if (this.image.isStatic) {
+                    this.floorFrame = this.image.nextFrame();
+                }
+                const n = Math.floor(this.width / this.floorWidth);
+                for (let i = 0; i < n + 1; i++) {
+                    c.drawImage(this.floorFrame, this.left() + this.floorWidth * i, this.bottom(), this.floorWidth, this.floorHeight);
+                }
             }
         }
     };
@@ -1461,6 +1562,9 @@ export class CreateJS {
     scale = new CreateJS.Vec2(1, 1);
     _backgroundColor = "white";
     type;
+    initialOffset = new CreateJS.Vec2();
+    objects = [];
+    areas = [];
     constructor(canvas, type) {
         this.canvas = canvas;
         this.c = canvas.getContext("2d");
@@ -1478,6 +1582,10 @@ export class CreateJS {
             image-rendering: pixelated;
         `;
         this.c.imageSmoothingEnabled = false;
+        addEventListener("resize", () => {
+            this.canvas.width = innerWidth;
+            this.canvas.height = innerHeight;
+        });
         return this;
     }
     resizeCanvas(x, y) {
@@ -1487,6 +1595,7 @@ export class CreateJS {
     }
     backgroundColor(color) {
         this._backgroundColor = color;
+        this.canvas.style.backgroundColor = `${color}`;
         return this;
     }
     bind(object, center) {
@@ -1511,7 +1620,13 @@ export class CreateJS {
         this.translateOffset = offset;
         return this;
     }
-    render(...objects) {
+    addObjects(...objects) {
+        this.objects.push(...objects);
+    }
+    addAreas(...areas) {
+        this.areas.push(...areas);
+    }
+    render() {
         if (this._binded) {
             const offset = this._binded.center().sub(this._center);
             this.translate(offset.negate());
@@ -1523,15 +1638,15 @@ export class CreateJS {
         this.c.imageSmoothingEnabled = false;
         this.c.fillStyle = this._backgroundColor;
         this.c.fillRect(-this.translateOffset.x, -this.translateOffset.y, this.canvas.width, this.canvas.height);
-        objects.forEach(object => {
+        this.objects.forEach(object => {
             if (object.backgroundRendering)
                 object.draw(this.c);
         });
-        objects.forEach(object => {
+        this.objects.forEach(object => {
             if (!object.backgroundRendering && !object.foregroundRendering)
                 object.draw(this.c);
         });
-        objects.forEach(object => {
+        this.objects.forEach(object => {
             if (object.foregroundRendering)
                 object.draw(this.c);
         });

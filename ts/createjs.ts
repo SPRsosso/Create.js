@@ -336,8 +336,7 @@ export class CreateJS {
                 ) {
                     const vec = new CreateJS.Vec2(initialEvent.clientX, initialEvent.clientY);
                     if (CreateJS.mainThread) {
-                        console.log(vec, CreateJS.mainThread.translateOffset, (initialBinded as CreateJS.Physics.Rigidbody).position);
-                        vec.sub(CreateJS.mainThread.translateOffset)
+                        vec.sub(CreateJS.mainThread.initialOffset);
                     };
                     if ((initialBinded as CreateJS.Physics.Rigidbody).containsPoint(vec)) {
                         bindedObject.position.add(offset);
@@ -679,6 +678,7 @@ export class CreateJS {
                     this._mouseMove = event;
                     this._initialEvent = event;
                     this._initialBinded = deepCloneObject(this._binded);
+                    if (CreateJS.mainThread) CreateJS.mainThread.initialOffset = CreateJS.mainThread.translateOffset;
                 });
 
                 addEventListener("mouseup", ( event ) => {
@@ -871,7 +871,7 @@ export class CreateJS {
         static Handler = class KeyboardEvent_Handler<ObjectType = any> {
             private heldKeys: Set<string> = new Set();
             private pressedKeys: Map<string, boolean> = new Map();
-            private callbacks: Map<string, { callback: ( bindedObject: ObjectType | undefined ) => void, options: CreateJS.KeyboardHandlerOptions }> = new Map();
+            private callbacks: Map<string, { callback: ( eventHandler: CreateJS.KeyboardEvent.Handler<ObjectType>, bindedObject: ObjectType | undefined ) => void, options: CreateJS.KeyboardHandlerOptions }> = new Map();
             private _unhandle: boolean = false;
             private _binded: ObjectType | undefined;
 
@@ -904,7 +904,7 @@ export class CreateJS {
                     for (let key of this.heldKeys) {
                         if (this.callbacks.has(key)) {
                             if (this.callbacks.get(key)!.options.type === "hold") {
-                                this.callbacks.get(key)!.callback(this._binded);
+                                this.callbacks.get(key)!.callback(this, this._binded);
                             }
                         }
                     }
@@ -913,7 +913,7 @@ export class CreateJS {
                         if (this.callbacks.has(key)) {
                             if (this.pressedKeys.get(key)) {
                                 if (this.callbacks.get(key)!.options.type === "press") {
-                                    this.callbacks.get(key)!.callback(this._binded);
+                                    this.callbacks.get(key)!.callback(this, this._binded);
                                     this.pressedKeys.set(key, false);
                                 }
                             }
@@ -928,7 +928,7 @@ export class CreateJS {
                 this._unhandle = true;
             }
 
-            register(key: CreateJS.KeyboardKey, callback: ( bindedObject: ObjectType | undefined ) => void, options: CreateJS.KeyboardHandlerOptions = { type: "hold" }): void {
+            register(key: CreateJS.KeyboardKey, callback: ( eventHandler: CreateJS.KeyboardEvent.Handler<ObjectType>, bindedObject: ObjectType | undefined ) => void, options: CreateJS.KeyboardHandlerOptions = { type: "hold" }): void {
                 this.callbacks.set(key, { callback, options });
             }
 
@@ -1273,6 +1273,9 @@ export class CreateJS {
             return new CreateJS.Vec2(this.x + this.width / 2, this.y + this.height / 2);
         }
 
+        isOnTopOf(rect: CreateJS.Rect) {
+            return this.top() <= rect.top() && this.bottom() >= rect.top() && this.left() < rect.right() && this.right() > rect.left();
+        }
 
         override draw(c: CanvasRenderingContext2D): void {
             c.beginPath();
@@ -1291,7 +1294,7 @@ export class CreateJS {
             velocity: CreateJS.Vec2 = new CreateJS.Vec2();
             acceleration: CreateJS.Vec2 = new CreateJS.Vec2();
             drag: number = 0.9;
-            friction: number = 0.99;
+            friction: number = 0.8;
 
             isStatic: boolean;
 
@@ -1414,25 +1417,30 @@ export class CreateJS {
                 bodies.forEach(body => {
                     if (this === body) return;
 
-                    if (this.bottom() + this.velocity.y * time >= body.top() + body.velocity.y * time && this.bottom() <= body.top() && this.left() <= body.right()  && this.right() >= body.left()) {
-                        this.position.add(new CreateJS.Vec2(0, body.top() + body.velocity.y - this.bottom()));
+                    if (this.bottom() + this.velocity.y * time >= body.top() + body.velocity.y * time && this.bottom() <= body.top() && this.left() <= body.right() && this.right() >= body.left()) {
+                        if (!this.isStatic) this.position.add(new CreateJS.Vec2(0, body.top() + body.velocity.y - this.bottom()));
                         this.velocity.set(this.velocity.x, 0);
                     }
 
                     if (body.isStatic) {
+                        if (this.top() + this.velocity.y * time <= body.bottom() + body.velocity.y * time && this.top() >= body.bottom() && this.left() <= body.right() && this.right() >= body.left()) {
+                            if (!this.isStatic) this.position.add(new CreateJS.Vec2(0, body.bottom() - this.top()));
+                            this.velocity.set(this.velocity.x, -this.velocity.y * 0.5);
+                        }
+                        
                         if (this.left() + this.velocity.x * time <= body.right() + body.velocity.x * time && this.left() >= body.right() && this.top() <= body.bottom() && this.bottom() >= body.top()) {
-                            this.position.add(new CreateJS.Vec2(this.left() - body.right(), 0));
+                            if (!this.isStatic) this.position.add(new CreateJS.Vec2(body.right() - this.left(), 0));
                             this.velocity.set(0, this.velocity.y);
                         }
 
                         if (this.right() + this.velocity.x * time >= body.left() + body.velocity.x * time && this.right() <= body.left() && this.top() <= body.bottom() && this.bottom() >= body.top()) {
-                            this.position.add(new CreateJS.Vec2(body.left() - this.right(), 0));
+                            if (!this.isStatic) this.position.add(new CreateJS.Vec2(body.left() - this.right(), 0));
                             this.velocity.set(0, this.velocity.y);
                         }
 
                         const collides = this.collidesWith(body);
                         if (collides.collides) {
-                            const newPos = collides.normal.clone().mul(collides.depth);
+                            const newPos = collides.normal.clone().mul(collides.depth + 1);
     
                             this.position.add(newPos);
                         }
@@ -1467,6 +1475,16 @@ export class CreateJS {
         addBody(...bodies: CreateJS.Physics.Rigidbody[]): CreateJS.Physics {
             this.bodies.push(...bodies);
             return this;
+        }
+
+        applyJumpTo(body: CreateJS.Physics.Rigidbody, multiplier: number, condition: (current: CreateJS.Physics.Rigidbody, other: CreateJS.Physics.Rigidbody) => boolean): void {
+            let flag = false;
+            this.bodies.forEach(other => {
+                if (body === other) return;
+
+                if (condition(body, other)) flag = true;
+            });
+            if (flag) body.addAcceleration(this.gravity.clone().negate().add(this.gravity.clone().negate().mul(multiplier)));
         }
 
         update(time: number) {
@@ -1536,6 +1554,11 @@ export class CreateJS {
 
             return this.canvas;
         }
+
+        is(img: CreateJS.Image): boolean {
+            return this.image === img.image && this.frameWidth === img.frameWidth
+                   && this.frameHeight === img.frameHeight && this.frameTime === img.frameTime;
+        }
     }
 
     static Sprite = class CreateJS_Sprite extends CreateJS.Physics.Rigidbody {
@@ -1592,8 +1615,11 @@ export class CreateJS {
         }
 
         setImage(image: CreateJS.Image): typeof this {
-            this.image = image;
-            clearTimeout(this.timeout);
+            if (!this.image.is(image)) {
+                this.image = image;
+                clearTimeout(this.timeout);
+                this.canDrawFrame = true;
+            }
             return this;
         }
 
@@ -1613,7 +1639,7 @@ export class CreateJS {
                 })
             }
 
-            if (this.image.image) {
+            if (this.image?.image) {
                 if (this.canDrawFrame && !this.image.isStatic) {
                     this.canDrawFrame = false;
     
@@ -1629,6 +1655,92 @@ export class CreateJS {
                 }
 
                 c.drawImage(this.frame, this.x, this.y, this.width, this.height);
+            }
+        }
+    }
+
+    static Area = class CreateJS_Area extends CreateJS.Rect {
+        protected frame: HTMLCanvasElement = document.createElement("canvas");
+        protected floorFrame: HTMLCanvasElement = document.createElement("canvas");
+        protected canDrawFrame: boolean = true;
+        protected timeout?: number;
+        protected floorTimeout?: number;
+        protected canDrawFloorFrame: boolean = true;
+
+        threshold: number;
+        image: CreateJS.Image;
+        floorImage: CreateJS.Image;
+        floorWidth: number;
+        floorHeight: number;
+
+        constructor(x: number, y: number, width: number, height: number, image: CreateJS.Image, floorImage: CreateJS.Image, floorWidth: number, floorHeight: number, threshold: number) {
+            super(x, y, width, height);
+
+            this.threshold = threshold;
+            this.image = image;
+            this.floorImage = floorImage;
+            this.floorWidth = floorWidth;
+            this.floorHeight = floorHeight;
+        }
+
+        setImage(image: CreateJS.Image): typeof this {
+            if (!this.image.is(image)) {
+                this.image = image;
+                clearTimeout(this.timeout);
+                this.canDrawFrame = true;
+            }
+            return this;
+        }
+
+        setFloorImage(image: CreateJS.Image): typeof this {
+            if (!this.floorImage.is(image)) {
+                this.floorImage = image;
+                clearTimeout(this.floorTimeout);
+                this.canDrawFloorFrame = true;
+            }
+            return this;
+        }
+
+        draw(c: CanvasRenderingContext2D): void {
+            super.draw(c);
+
+            if (this.image?.image) {
+                if (this.canDrawFrame && !this.image.isStatic) {
+                    this.canDrawFrame = false;
+    
+                    this.frame = this.image.nextFrame();
+    
+                    this.timeout = setTimeout(() => {
+                        this.canDrawFrame = true;
+                    }, this.image.frameTime);
+                };
+
+                if (this.image.isStatic) {
+                    this.frame = this.image.nextFrame();
+                }
+
+                c.drawImage(this.frame, this.x, this.y, this.width, this.height);
+            }
+
+            if (this.floorImage?.image) {
+                if (this.canDrawFloorFrame && !this.image.isStatic) {
+                    this.canDrawFloorFrame = false;
+    
+                    this.floorFrame = this.image.nextFrame();
+    
+                    this.timeout = setTimeout(() => {
+                        this.canDrawFloorFrame = true;
+                    }, this.image.frameTime);
+                };
+
+                if (this.image.isStatic) {
+                    this.floorFrame = this.image.nextFrame();
+                }
+
+                const n = Math.floor(this.width / this.floorWidth);
+                for (let i = 0; i < n + 1; i++) {
+                    c.drawImage(this.floorFrame, this.left() + this.floorWidth * i, this.bottom(), this.floorWidth, this.floorHeight);
+                }
             }
         }
     }
@@ -1744,6 +1856,9 @@ export class CreateJS {
     scale: CreateJS.Vec2 = new CreateJS.Vec2(1, 1);
     private _backgroundColor: string = "white";
     type: "main" | "secondary";
+    initialOffset: CreateJS.Vec2 = new CreateJS.Vec2();
+    objects: CreateJS.Rect[] = [];
+    areas: CreateJS.Area[] = [];
 
     constructor(canvas: HTMLCanvasElement, type: "main" | "secondary") {
         this.canvas = canvas;
@@ -1767,6 +1882,11 @@ export class CreateJS {
 
         this.c.imageSmoothingEnabled = false;
 
+        addEventListener("resize", () => {
+            this.canvas.width = innerWidth;
+            this.canvas.height = innerHeight;
+        });
+
         return this;
     }
 
@@ -1779,6 +1899,7 @@ export class CreateJS {
 
     backgroundColor(color: string): CreateJS {
         this._backgroundColor = color;
+        this.canvas.style.backgroundColor = `${color}`;
 
         return this;
     }
@@ -1809,7 +1930,15 @@ export class CreateJS {
         return this;
     }
 
-    render(...objects: CreateJS.Rect[]): void {
+    addObjects(...objects: CreateJS.Rect[]) {
+        this.objects.push(...objects);
+    }
+
+    addAreas(...areas: CreateJS.Area[]) {
+        this.areas.push(...areas);
+    }
+
+    render(): void {
         if (this._binded) {
             const offset = this._binded.center().sub(this._center);
             this.translate(offset.negate());
@@ -1823,15 +1952,15 @@ export class CreateJS {
         this.c.fillStyle = this._backgroundColor;
         this.c.fillRect(-this.translateOffset.x, -this.translateOffset.y, this.canvas.width, this.canvas.height);
 
-        objects.forEach(object => {
+        this.objects.forEach(object => {
             if (object.backgroundRendering) object.draw(this.c);
         });
 
-        objects.forEach(object => {
+        this.objects.forEach(object => {
             if (!object.backgroundRendering && !object.foregroundRendering) object.draw(this.c);
         });
 
-        objects.forEach(object => {
+        this.objects.forEach(object => {
             if (object.foregroundRendering) object.draw(this.c);
         })
         this.c.restore();
@@ -1858,6 +1987,7 @@ export namespace CreateJS {
     export type Point = InstanceType<typeof CreateJS.Point>;
     export type Line = InstanceType<typeof CreateJS.Line>;
     export type Rect = InstanceType<typeof CreateJS.Rect>;
+    export type Area = InstanceType<typeof CreateJS.Area>;
     export type Vec2 = InstanceType<typeof CreateJS.Vec2>;
     export type Physics = InstanceType<typeof CreateJS.Physics>;
     export type KeyboardEvent = InstanceType<typeof CreateJS.KeyboardEvent>;
@@ -1874,20 +2004,12 @@ export namespace CreateJS {
 
     export namespace KeyboardEvent {
         export type Key = typeof CreateJS.KeyboardEvent.Key;
-        export type Handler = InstanceType<typeof CreateJS.KeyboardEvent.Handler>;
+        export type Handler<ObjectType extends any> = InstanceType<typeof CreateJS.KeyboardEvent.Handler<ObjectType>>;
     }
 
     export namespace MouseEvent {
         export type Type = typeof CreateJS.MouseEvent.Type;
         export type Handler = InstanceType<typeof CreateJS.MouseEvent.Handler>;
-
-        export namespace Handler {
-            export type Callback = (
-                { type: typeof CreateJS.MouseEvent.Type.Drag } & { callback: ( target: HTMLElement, offset: number, event: MouseEvent ) => void }
-                | { type: typeof CreateJS.MouseEvent.Type.Click } & { callback: ( target: HTMLElement, event: MouseEvent ) => void }
-                | { type: typeof CreateJS.MouseEvent.Type.DoubleClick } & { callback: ( target: HTMLElement, event: MouseEvent ) => void }
-            );
-        }
     }
     
     export namespace TouchEvent {
