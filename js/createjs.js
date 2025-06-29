@@ -242,35 +242,44 @@ export class CreateJS {
     };
     static Utils = class Utils {
         static Mouse = class Utils_Mouse {
-            static DragObject(bindedObject, target, offset, event, initialEvent, initialBinded) {
-                if (typeof bindedObject === "object"
-                    && bindedObject instanceof HTMLElement) {
-                    const x = initialBinded.getBoundingClientRect().left;
-                    const y = initialBinded.getBoundingClientRect().top;
-                    const width = initialBinded.getBoundingClientRect().right - x;
-                    const height = initialBinded.getBoundingClientRect().bottom - y;
-                    const rect = new CreateJS.Rect(x, y, width, height);
-                    const isMouseOver = rect.containsPoint(new CreateJS.Vec2(initialEvent.clientX, initialEvent.clientY));
-                    if (isMouseOver) {
-                        const pos = new CreateJS.Vec2(x, y);
-                        pos.add(offset);
-                        bindedObject.style.left = pos.x + "px";
-                        bindedObject.style.top = pos.y + "px";
-                    }
+            static DragObject(createJS, initialEvent, object, objects) {
+                if (!objects.has(object))
+                    return false;
+                const rect = objects.get(object);
+                if (!rect)
+                    return false;
+                if (object instanceof CreateJS.Physics.Rigidbody) {
+                    const isMouseOver = rect.containsPoint(new CreateJS.Vec2(initialEvent.clientX, initialEvent.clientY).sub(createJS.initialOffset));
+                    return isMouseOver;
                 }
-                if (typeof bindedObject === "object"
-                    && bindedObject instanceof CreateJS.Physics.Rigidbody) {
-                    const vec = new CreateJS.Vec2(initialEvent.clientX, initialEvent.clientY);
-                    if (CreateJS.mainThread) {
-                        vec.sub(CreateJS.mainThread.initialOffset);
-                    }
-                    ;
-                    if (initialBinded.containsPoint(vec)) {
-                        bindedObject.position.add(offset);
-                        bindedObject.velocity.zero();
-                        bindedObject.acceleration.zero();
-                    }
+                const isMouseOver = rect.containsPoint(new CreateJS.Vec2(initialEvent.clientX, initialEvent.clientY));
+                return isMouseOver;
+            }
+            static ClickObject(createJS, event, object, objects) {
+                if (!objects.has(object))
+                    return false;
+                const rect = objects.get(object);
+                if (!rect)
+                    return false;
+                if (object instanceof CreateJS.Physics.Rigidbody) {
+                    const isMouseOver = rect.containsPoint(new CreateJS.Vec2(event.clientX, event.clientY).sub(createJS.translateOffset));
+                    return isMouseOver;
                 }
+                const isMouseOver = rect.containsPoint(new CreateJS.Vec2(event.clientX, event.clientY));
+                return isMouseOver;
+            }
+            static DoubleClickObject(createJS, event, object, objects) {
+                if (!objects.has(object))
+                    return false;
+                const rect = objects.get(object);
+                if (!rect)
+                    return false;
+                if (object instanceof CreateJS.Physics.Rigidbody) {
+                    const isMouseOver = rect.containsPoint(new CreateJS.Vec2(event.clientX, event.clientY).sub(createJS.translateOffset));
+                    return isMouseOver;
+                }
+                const isMouseOver = rect.containsPoint(new CreateJS.Vec2(event.clientX, event.clientY));
+                return isMouseOver;
             }
         };
         static Keyboard = class Utils_Keyboard {
@@ -558,7 +567,6 @@ export class CreateJS {
             DoubleClick: "DoubleClick",
         };
         static Handler = class MouseEvent_Handler {
-            _binded;
             _callbacks = [];
             _unhandle = false;
             _mouseDown;
@@ -567,15 +575,33 @@ export class CreateJS {
             _mouseMove;
             _beforeMouseMove;
             _initialEvent;
-            _initialBinded;
-            constructor() {
+            createjsInstance;
+            objects = new Map();
+            constructor(createjsInstance) {
+                this.createjsInstance = createjsInstance;
                 addEventListener("mousedown", (event) => {
                     this._mouseDown = event;
                     this._mouseMove = event;
                     this._initialEvent = event;
-                    this._initialBinded = deepCloneObject(this._binded);
-                    if (CreateJS.mainThread)
-                        CreateJS.mainThread.initialOffset = CreateJS.mainThread.translateOffset;
+                    const target = event.target;
+                    this.objects.forEach((val, key) => {
+                        if (key === target) {
+                            const targetPos = target.getBoundingClientRect();
+                            const rect = new CreateJS.Rect(targetPos.left, targetPos.top, targetPos.width, targetPos.height);
+                            this.objects.set(key, rect);
+                            return;
+                        }
+                        if (key instanceof CreateJS.Physics.Rigidbody) {
+                            key.position.add(createjsInstance.translateOffset);
+                            let canCreateRect = key.containsPoint(new CreateJS.Vec2(event.clientX, event.clientY));
+                            key.position.sub(createjsInstance.translateOffset);
+                            if (canCreateRect) {
+                                const rect = new CreateJS.Rect(key.position.x, key.position.y, key.width, key.height);
+                                this.objects.set(key, rect);
+                            }
+                        }
+                    });
+                    this.createjsInstance.initialOffset = new CreateJS.Vec2(this.createjsInstance.translateOffset.x, this.createjsInstance.translateOffset.y);
                 });
                 addEventListener("mouseup", (event) => {
                     this._mouseUp = event;
@@ -595,15 +621,15 @@ export class CreateJS {
                     }
                     this._callbacks.forEach(callback => {
                         if (callback.type === CreateJS.MouseEvent.Type.Click && this._mouseUp) {
-                            callback.callback(this._binded, this._mouseUp.target, this._mouseUp);
+                            callback.callback(this.createjsInstance, this.objects, this._mouseUp);
                         }
                         if (callback.type === CreateJS.MouseEvent.Type.DoubleClick && this._dblClick) {
-                            callback.callback(this._binded, this._dblClick.target, this._dblClick);
+                            callback.callback(this.createjsInstance, this.objects, this._dblClick);
                         }
                         if (callback.type === CreateJS.MouseEvent.Type.Drag && this._mouseDown && this._initialEvent && this._mouseMove && this._beforeMouseMove) {
                             const offset = new CreateJS.Vec2(this._mouseMove.clientX, this._mouseMove.clientY);
                             offset.sub(new CreateJS.Vec2(this._beforeMouseMove.clientX, this._beforeMouseMove.clientY));
-                            callback.callback(this._binded, this._mouseMove.target, offset, this._mouseMove, this._initialEvent, this._initialBinded);
+                            callback.callback(this.createjsInstance, this.objects, offset, this._mouseMove, this._initialEvent);
                         }
                     });
                     if (this._mouseDown) {
@@ -620,12 +646,14 @@ export class CreateJS {
                     await CreateJS.TimeHandler.wait(fps * 1000);
                 }
             }
+            bind(object) {
+                this.objects.set(object, undefined);
+            }
+            unbind(object) {
+                this.objects.delete(object);
+            }
             unhandle() {
                 this._unhandle = true;
-            }
-            bind(object) {
-                this._binded = object;
-                return this;
             }
             register(type, callback) {
                 this._callbacks.push({ type, callback });
@@ -747,7 +775,8 @@ export class CreateJS {
             callbacks = new Map();
             _unhandle = false;
             _binded;
-            constructor() {
+            createjsInstance;
+            constructor(createjsInstance) {
                 addEventListener("keydown", (event) => {
                     this.heldKeys.add(event.code);
                     if (!this.pressedKeys.has(event.code)) {
@@ -758,6 +787,7 @@ export class CreateJS {
                     this.heldKeys.delete(event.code);
                     this.pressedKeys.delete(event.code);
                 });
+                this.createjsInstance = createjsInstance;
             }
             bind(object) {
                 this._binded = object;
@@ -801,20 +831,21 @@ export class CreateJS {
         };
     };
     static Component = class CreateJS_Component {
-        static components = [];
-        id;
         classList;
         filePath;
         stylePath;
         component;
-        constructor(componentID, classList, filePath, stylePath) {
-            this.id = componentID;
-            this.classList = classList;
+        className;
+        connectedCallback = () => { };
+        disconnectedCallback = () => { };
+        constructor(className, filePath, stylePath, classList = []) {
+            this.className = className;
             this.filePath = filePath;
             this.stylePath = stylePath;
+            this.classList = classList;
         }
-        async generate(atId) {
-            if (!atId) {
+        async generate(atList) {
+            if (!atList) {
                 this.component = document.createElement("div");
                 const element = await (await fetch(this.filePath)).text();
                 this.component.innerHTML = element;
@@ -824,20 +855,31 @@ export class CreateJS {
                 this.component = document.createElement("div");
                 const element = await (await fetch(this.filePath)).text();
                 this.component.innerHTML = element;
-                const foundElement = document.getElementById(atId);
+                const foundElement = document.querySelectorAll(atList);
                 if (!foundElement)
-                    throw new Error("Element " + atId + " was not found!");
-                foundElement.appendChild(this.component);
+                    throw new Error("Elements " + atList + " was not found!");
+                foundElement.forEach(element => {
+                    if (this.component)
+                        element.appendChild(this.component);
+                });
             }
+            this.addClass(this.className);
             this.addClass(...this.classList);
-            const styleComponent = document.createElement("style");
-            const styles = await (await fetch(this.stylePath)).text();
-            styleComponent.innerHTML = styles;
-            document.head.appendChild(styleComponent);
+            if (this.stylePath) {
+                const styleComponent = document.createElement("style");
+                const styles = await (await fetch(this.stylePath)).text();
+                styleComponent.innerHTML = `.${this.className} { ${styles} }`;
+                document.head.appendChild(styleComponent);
+            }
+            this.connectedCallback(this);
+        }
+        clone() {
+            return deepCloneObject(this);
         }
         remove() {
             if (!this.component)
                 throw new Error("Component does not exist!");
+            this.disconnectedCallback(this);
             this.component.remove();
             this.component = undefined;
         }
@@ -860,6 +902,35 @@ export class CreateJS {
             if (!this.component)
                 throw new Error("Component does not exist!");
             this.component.classList.remove(...classNames);
+        }
+        setFunctionalityTo(selectors, listener, callback) {
+            const elements = this.component?.querySelectorAll(selectors);
+            if (elements) {
+                elements.forEach(element => {
+                    element.addEventListener(listener, callback);
+                });
+            }
+        }
+        setPosition(position) {
+            if (!this.component)
+                throw new Error("Component does not exist!");
+            this.component.style.position = "absolute";
+            this.component.style.left = position.x + "px";
+            this.component.style.top = position.y + "px";
+        }
+        getPosition() {
+            if (!this.component)
+                throw new Error("Component does not exist!");
+            return new CreateJS.Vec2(this.component.getBoundingClientRect().left, this.component.getBoundingClientRect().top);
+        }
+        addOffset(offset) {
+            this.setPosition(this.getPosition().add(offset));
+        }
+        setConnectedCallback(callback) {
+            this.connectedCallback = callback;
+        }
+        setDisconnectedCallback(callback) {
+            this.disconnectedCallback = callback;
         }
     };
     static Point = class CreateJS_Point {
@@ -1068,6 +1139,12 @@ export class CreateJS {
         containsPoint(point) {
             return point.x <= this.x + this.width && point.x >= this.x && point.y <= this.y + this.height && point.y >= this.y;
         }
+        containsRect(rect) {
+            return this.containsPoint(new CreateJS.Vec2(rect.left(), rect.top())) &&
+                this.containsPoint(new CreateJS.Vec2(rect.left(), rect.bottom())) &&
+                this.containsPoint(new CreateJS.Vec2(rect.right(), rect.top())) &&
+                this.containsPoint(new CreateJS.Vec2(rect.right(), rect.bottom()));
+        }
         containsPointExclusive(point) {
             return point.x < this.x + this.width && point.x > this.x && point.y < this.y + this.height && point.y > this.y;
         }
@@ -1086,7 +1163,21 @@ export class CreateJS {
         center() {
             return new CreateJS.Vec2(this.x + this.width / 2, this.y + this.height / 2);
         }
+        alignX() {
+            this.position.sub(new CreateJS.Vec2(this.width, 0));
+            return this;
+        }
+        alignY() {
+            this.position.sub(new CreateJS.Vec2(0, this.height));
+            return this;
+        }
+        align() {
+            this.position.sub(this.size);
+            return this;
+        }
         isOnTopOf(rect) {
+            if (rect instanceof CreateJS.Area)
+                return this.top() <= rect.bottom() && this.bottom() >= rect.bottom() && this.left() < rect.right() && this.right() > rect.left();
             return this.top() <= rect.top() && this.bottom() >= rect.top() && this.left() < rect.right() && this.right() > rect.left();
         }
         draw(c) {
@@ -1196,7 +1287,7 @@ export class CreateJS {
                     normal
                 };
             }
-            update(time, bodies) {
+            update(time, bodies, areas) {
                 if (!this.isStatic) {
                     this.velocity.add(this.getAcceleration().mul(time));
                     this.velocity.mul(this.drag ** time);
@@ -1232,6 +1323,28 @@ export class CreateJS {
                         }
                     }
                 });
+                areas.forEach(area => {
+                    if (this.left() + this.velocity.x * time < area.left()) {
+                        if (!this.isStatic)
+                            this.position.add(new CreateJS.Vec2(area.left() - this.left(), 0));
+                        this.velocity.set(0, this.velocity.y);
+                    }
+                    if (this.right() + this.velocity.x * time > area.right()) {
+                        if (!this.isStatic)
+                            this.position.add(new CreateJS.Vec2(area.right() - this.right(), 0));
+                        this.velocity.set(0, this.velocity.y);
+                    }
+                    if (this.top() + this.velocity.y * time < area.top()) {
+                        if (!this.isStatic)
+                            this.position.add(new CreateJS.Vec2(0, area.top() - this.top()));
+                        this.velocity.set(this.velocity.x, -this.velocity.y * 0.5);
+                    }
+                    if (this.bottom() + this.velocity.y * time > area.bottom()) {
+                        if (!this.isStatic)
+                            this.position.add(new CreateJS.Vec2(0, area.bottom() - this.bottom()));
+                        this.velocity.set(this.velocity.x, 0);
+                    }
+                });
                 if (!this.isStatic) {
                     this.position.add(this.getVelocity().mul(time));
                     this.acceleration.zero();
@@ -1242,6 +1355,7 @@ export class CreateJS {
             }
         };
         bodies = [];
+        areas = [];
         gravity = new CreateJS.Vec2();
         constructor() { }
         setGravity(gravity) {
@@ -1254,6 +1368,10 @@ export class CreateJS {
             this.bodies.push(...bodies);
             return this;
         }
+        addAreas(...areas) {
+            this.areas.push(...areas);
+            return this;
+        }
         applyJumpTo(body, multiplier, condition) {
             let flag = false;
             this.bodies.forEach(other => {
@@ -1262,13 +1380,17 @@ export class CreateJS {
                 if (condition(body, other))
                     flag = true;
             });
+            this.areas.forEach(area => {
+                if (condition(body, area))
+                    flag = true;
+            });
             if (flag)
                 body.addAcceleration(this.gravity.clone().negate().add(this.gravity.clone().negate().mul(multiplier)));
         }
         update(time) {
             this.bodies.forEach(body => {
                 body.addAcceleration(this.gravity);
-                body.update(time, this.bodies);
+                body.update(time, this.bodies, this.areas);
             });
         }
     };
@@ -1401,7 +1523,7 @@ export class CreateJS {
             }
         }
     };
-    static Area = class CreateJS_Area extends CreateJS.Rect {
+    static Area = class CreateJS_Area extends CreateJS.Physics.Rigidbody {
         frame = document.createElement("canvas");
         floorFrame = document.createElement("canvas");
         canDrawFrame = true;
@@ -1414,7 +1536,7 @@ export class CreateJS {
         floorWidth;
         floorHeight;
         constructor(x, y, width, height, image, floorImage, floorWidth, floorHeight, threshold) {
-            super(x, y, width, height);
+            super(true, x, y, width, height);
             this.threshold = threshold;
             this.image = image;
             this.floorImage = floorImage;
@@ -1437,6 +1559,9 @@ export class CreateJS {
             }
             return this;
         }
+        clear(c) {
+            c.clearRect(this.x - this.threshold, this.y - this.threshold, this.width + this.threshold * 2, this.height + this.threshold * 2);
+        }
         draw(c) {
             super.draw(c);
             if (this.image?.image) {
@@ -1456,19 +1581,20 @@ export class CreateJS {
             if (this.floorImage?.image) {
                 if (this.canDrawFloorFrame && !this.image.isStatic) {
                     this.canDrawFloorFrame = false;
-                    this.floorFrame = this.image.nextFrame();
+                    this.floorFrame = this.floorImage.nextFrame();
                     this.timeout = setTimeout(() => {
                         this.canDrawFloorFrame = true;
                     }, this.image.frameTime);
                 }
                 ;
                 if (this.image.isStatic) {
-                    this.floorFrame = this.image.nextFrame();
+                    this.floorFrame = this.floorImage.nextFrame();
                 }
                 const n = Math.floor(this.width / this.floorWidth);
                 for (let i = 0; i < n + 1; i++) {
                     c.drawImage(this.floorFrame, this.left() + this.floorWidth * i, this.bottom(), this.floorWidth, this.floorHeight);
                 }
+                c.clearRect(this.right(), this.bottom(), this.floorWidth, this.floorHeight);
             }
         }
     };
@@ -1552,26 +1678,21 @@ export class CreateJS {
             CreateJS.TimeHandler._pause = false;
         }
     };
-    static mainThread = undefined;
     canvas;
     c;
     _binded;
-    _center = new CreateJS.Vec2(innerWidth / 2, innerHeight / 2);
+    _center = new CreateJS.Vec2();
     rotateAngle = 0;
     translateOffset = new CreateJS.Vec2();
     scale = new CreateJS.Vec2(1, 1);
     _backgroundColor = "white";
-    type;
     initialOffset = new CreateJS.Vec2();
     objects = [];
     areas = [];
-    constructor(canvas, type) {
+    changeOffset = { x: true, y: true };
+    constructor(canvas) {
         this.canvas = canvas;
         this.c = canvas.getContext("2d");
-        this.type = type;
-        if (this.type === "main") {
-            CreateJS.mainThread = this;
-        }
     }
     init() {
         document.body.style.cssText = `
@@ -1585,12 +1706,14 @@ export class CreateJS {
         addEventListener("resize", () => {
             this.canvas.width = innerWidth;
             this.canvas.height = innerHeight;
+            this._center = new CreateJS.Vec2(this.canvas.width / 2, this.canvas.height / 2);
         });
         return this;
     }
     resizeCanvas(x, y) {
         this.canvas.width = x;
         this.canvas.height = y;
+        this._center = new CreateJS.Vec2(this.canvas.width / 2, this.canvas.height / 2);
         return this;
     }
     backgroundColor(color) {
@@ -1598,10 +1721,9 @@ export class CreateJS {
         this.canvas.style.backgroundColor = `${color}`;
         return this;
     }
-    bind(object, center) {
+    bind(object, changeOffset = { x: true, y: true }) {
         this._binded = object;
-        if (center)
-            this._center = center;
+        this.changeOffset = changeOffset;
         return this;
     }
     unbind() {
@@ -1632,12 +1754,20 @@ export class CreateJS {
             this.translate(offset.negate());
         }
         this.c.save();
-        this.c.translate(this.translateOffset.x, this.translateOffset.y);
+        this.c.translate(this.changeOffset.x ? this.translateOffset.x : 0, this.changeOffset.y ? this.translateOffset.y : 0);
         this.c.rotate(this.rotateAngle);
         this.c.scale(this.scale.x, this.scale.y);
         this.c.imageSmoothingEnabled = false;
         this.c.fillStyle = this._backgroundColor;
-        this.c.fillRect(-this.translateOffset.x, -this.translateOffset.y, this.canvas.width, this.canvas.height);
+        this.c.fillRect(this.changeOffset.x ? -this.translateOffset.x : 0, this.changeOffset.y ? -this.translateOffset.y : 0, this.canvas.width, this.canvas.height);
+        this.areas.forEach(area => {
+            area.clear(this.c);
+            if (this._binded) {
+                if (area.containsRect(this._binded)) {
+                    area.draw(this.c);
+                }
+            }
+        });
         this.objects.forEach(object => {
             if (object.backgroundRendering)
                 object.draw(this.c);

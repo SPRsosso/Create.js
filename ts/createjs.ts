@@ -1,15 +1,15 @@
-type CallbackMap<T = any> = {
-    Drag: (bindedObject: T | undefined, target: EventTarget | null, offset: CreateJS.Vec2, event: MouseEvent, initialEvent: MouseEvent, initialBinded: T | undefined) => void;
-    Click: (bindedObject: T | undefined, target: EventTarget | null, event: MouseEvent) => void;
-    DoubleClick: (bindedObject: T | undefined, target: EventTarget | null, event: MouseEvent) => void;
+type CallbackMap = {
+    Drag: ( createJS: CreateJS, objects: Map<HTMLElement | CreateJS.Physics.Rigidbody, CreateJS.Rect | undefined>, offset: CreateJS.Vec2, event: MouseEvent, initialEvent: MouseEvent) => void;
+    Click: ( createJS: CreateJS, objects: Map<HTMLElement | CreateJS.Physics.Rigidbody, CreateJS.Rect | undefined>, event: MouseEvent ) => void;
+    DoubleClick: ( createJS: CreateJS, objects: Map<HTMLElement | CreateJS.Physics.Rigidbody, CreateJS.Rect | undefined>, event: MouseEvent ) => void;
 };
 
-type Callback<T = any> = {
-    [K in keyof CallbackMap<T>]: {
+type Callback = {
+    [K in keyof CallbackMap]: {
         type: K;
-        callback: CallbackMap<T>[K];
+        callback: CallbackMap[K];
     };
-}[keyof CallbackMap<T>];
+}[keyof CallbackMap];
 
 function deepCloneObject(obj: any): any {
     if (obj === null || typeof obj !== 'object') return obj;
@@ -309,41 +309,49 @@ export class CreateJS {
 
     static Utils = class Utils {
         static Mouse = class Utils_Mouse {
-            static DragObject(bindedObject: unknown, target: EventTarget | null, offset: CreateJS.Vec2, event: MouseEvent, initialEvent: MouseEvent, initialBinded: typeof bindedObject) {
-                if (
-                    typeof bindedObject === "object"
-                    && bindedObject instanceof HTMLElement
-                ) {
-                    const x = (initialBinded as HTMLElement).getBoundingClientRect().left;
-                    const y = (initialBinded as HTMLElement).getBoundingClientRect().top;
-                    const width = (initialBinded as HTMLElement).getBoundingClientRect().right - x;
-                    const height = (initialBinded as HTMLElement).getBoundingClientRect().bottom - y;
-                    
-                    const rect = new CreateJS.Rect(x, y, width, height);
-                    const isMouseOver = rect.containsPoint(new CreateJS.Vec2(initialEvent.clientX, initialEvent.clientY));
-                    
-                    if (isMouseOver) {
-                        const pos = new CreateJS.Vec2(x, y);
-                        pos.add(offset);
-    
-                        bindedObject.style.left = pos.x + "px";
-                        bindedObject.style.top = pos.y + "px";
-                    }
+            static DragObject(createJS: CreateJS, initialEvent: MouseEvent, object: HTMLElement | CreateJS.Physics.Rigidbody, objects: Map<HTMLElement | CreateJS.Physics.Rigidbody, CreateJS.Rect | undefined>): boolean {
+                if (!objects.has(object)) return false;
+                
+                const rect = objects.get(object);
+                if (!rect) return false;
+
+                if (object instanceof CreateJS.Physics.Rigidbody) {
+                    const isMouseOver = rect.containsPoint(new CreateJS.Vec2(initialEvent.clientX, initialEvent.clientY).sub(createJS.initialOffset));
+                    return isMouseOver;
                 }
-                if (
-                    typeof bindedObject === "object"
-                    && bindedObject instanceof CreateJS.Physics.Rigidbody
-                ) {
-                    const vec = new CreateJS.Vec2(initialEvent.clientX, initialEvent.clientY);
-                    if (CreateJS.mainThread) {
-                        vec.sub(CreateJS.mainThread.initialOffset);
-                    };
-                    if ((initialBinded as CreateJS.Physics.Rigidbody).containsPoint(vec)) {
-                        bindedObject.position.add(offset);
-                        bindedObject.velocity.zero();
-                        bindedObject.acceleration.zero();
-                    }
+
+                const isMouseOver = rect.containsPoint(new CreateJS.Vec2(initialEvent.clientX, initialEvent.clientY));
+                return isMouseOver;
+            }
+
+            static ClickObject(createJS: CreateJS, event: MouseEvent, object: HTMLElement | CreateJS.Physics.Rigidbody, objects: Map<HTMLElement | CreateJS.Physics.Rigidbody, CreateJS.Rect | undefined>): boolean {
+                if (!objects.has(object)) return false;
+                
+                const rect = objects.get(object);
+                if (!rect) return false;
+
+                if (object instanceof CreateJS.Physics.Rigidbody) {
+                    const isMouseOver = rect.containsPoint(new CreateJS.Vec2(event.clientX, event.clientY).sub(createJS.translateOffset));
+                    return isMouseOver;
                 }
+
+                const isMouseOver = rect.containsPoint(new CreateJS.Vec2(event.clientX, event.clientY));
+                return isMouseOver;
+            }
+
+            static DoubleClickObject(createJS: CreateJS, event: MouseEvent, object: HTMLElement | CreateJS.Physics.Rigidbody, objects: Map<HTMLElement | CreateJS.Physics.Rigidbody, CreateJS.Rect | undefined>): boolean {
+                if (!objects.has(object)) return false;
+                
+                const rect = objects.get(object);
+                if (!rect) return false;
+
+                if (object instanceof CreateJS.Physics.Rigidbody) {
+                    const isMouseOver = rect.containsPoint(new CreateJS.Vec2(event.clientX, event.clientY).sub(createJS.translateOffset));
+                    return isMouseOver;
+                }
+
+                const isMouseOver = rect.containsPoint(new CreateJS.Vec2(event.clientX, event.clientY));
+                return isMouseOver;
             }
         }
 
@@ -660,9 +668,8 @@ export class CreateJS {
             DoubleClick: "DoubleClick",
         } as const;
 
-        static Handler = class MouseEvent_Handler<ObjectType = any> {
-            private _binded: ObjectType | undefined;
-            private _callbacks: Callback<ObjectType>[] = [];
+        static Handler = class MouseEvent_Handler {
+            private _callbacks: Callback[] = [];
             private _unhandle: boolean = false;
             private _mouseDown: MouseEvent | undefined;
             private _mouseUp: MouseEvent | undefined;
@@ -670,15 +677,39 @@ export class CreateJS {
             private _mouseMove: MouseEvent | undefined;
             private _beforeMouseMove: MouseEvent | undefined;
             private _initialEvent: MouseEvent | undefined;
-            private _initialBinded: any;
+            private createjsInstance: CreateJS;
+            objects: Map<HTMLElement | CreateJS.Physics.Rigidbody, CreateJS.Rect | undefined> = new Map();
 
-            constructor() {
+            constructor(createjsInstance: CreateJS) {
+                this.createjsInstance = createjsInstance;
+
                 addEventListener("mousedown", ( event ) => {
                     this._mouseDown = event;
                     this._mouseMove = event;
                     this._initialEvent = event;
-                    this._initialBinded = deepCloneObject(this._binded);
-                    if (CreateJS.mainThread) CreateJS.mainThread.initialOffset = CreateJS.mainThread.translateOffset;
+
+                    const target = event.target as HTMLElement;
+                    this.objects.forEach(( val, key ) => {
+                        if (key === target) {
+                            const targetPos = target.getBoundingClientRect()
+                            const rect = new CreateJS.Rect(targetPos.left, targetPos.top, targetPos.width, targetPos.height);
+                            this.objects.set(key, rect);
+                        
+                            return;
+                        }
+
+                        if (key instanceof CreateJS.Physics.Rigidbody) {
+                            key.position.add(createjsInstance.translateOffset);
+                            let canCreateRect = key.containsPoint(new CreateJS.Vec2(event.clientX, event.clientY));
+                            key.position.sub(createjsInstance.translateOffset);
+                            if (canCreateRect) {
+                                const rect = new CreateJS.Rect(key.position.x, key.position.y, key.width, key.height);
+                                this.objects.set(key, rect);
+                            }
+                        } 
+                    });
+
+                    this.createjsInstance.initialOffset = new CreateJS.Vec2(this.createjsInstance.translateOffset.x, this.createjsInstance.translateOffset.y);
                 });
 
                 addEventListener("mouseup", ( event ) => {
@@ -703,16 +734,16 @@ export class CreateJS {
 
                     this._callbacks.forEach(callback => {
                         if (callback.type === CreateJS.MouseEvent.Type.Click && this._mouseUp) {
-                            callback.callback(this._binded, this._mouseUp.target, this._mouseUp);
+                            callback.callback(this.createjsInstance, this.objects, this._mouseUp);
                         }
                         if (callback.type === CreateJS.MouseEvent.Type.DoubleClick && this._dblClick) {
-                            callback.callback(this._binded, this._dblClick.target, this._dblClick);
+                            callback.callback(this.createjsInstance, this.objects, this._dblClick);
                         }
                         if (callback.type === CreateJS.MouseEvent.Type.Drag && this._mouseDown && this._initialEvent && this._mouseMove && this._beforeMouseMove) {
                             const offset = new CreateJS.Vec2(this._mouseMove.clientX, this._mouseMove.clientY);
                             offset.sub(new CreateJS.Vec2(this._beforeMouseMove.clientX, this._beforeMouseMove.clientY));
                             
-                            callback.callback(this._binded, this._mouseMove.target, offset, this._mouseMove, this._initialEvent, this._initialBinded);
+                            callback.callback(this.createjsInstance, this.objects, offset, this._mouseMove!, this._initialEvent!);
                         }
                     });
 
@@ -734,17 +765,20 @@ export class CreateJS {
                 }
             }
 
+            bind(object: HTMLElement | CreateJS.Physics.Rigidbody): void {
+                this.objects.set(object, undefined);
+            }
+
+            unbind(object: HTMLElement): void {
+                this.objects.delete(object);
+            }
+
             unhandle(): void {
                 this._unhandle = true;
             }
 
-            bind(object: ObjectType): typeof this {
-                this._binded = object;
-                return this;
-            }
-
-            register<T extends keyof CallbackMap<ObjectType>>(type: T, callback: CallbackMap<ObjectType>[T]): void {
-                this._callbacks.push({ type, callback } as Callback<ObjectType>);
+            register<T extends keyof CallbackMap>(type: T, callback: CallbackMap[T]): void {
+                this._callbacks.push({ type, callback } as Callback);
             }
 
             unregister<T extends keyof CallbackMap>(type: T) {
@@ -874,8 +908,9 @@ export class CreateJS {
             private callbacks: Map<string, { callback: ( eventHandler: CreateJS.KeyboardEvent.Handler<ObjectType>, bindedObject: ObjectType | undefined ) => void, options: CreateJS.KeyboardHandlerOptions }> = new Map();
             private _unhandle: boolean = false;
             private _binded: ObjectType | undefined;
+            private createjsInstance: CreateJS;
 
-            constructor() {
+            constructor(createjsInstance: CreateJS) {
                 addEventListener("keydown", ( event ) => {
                     this.heldKeys.add(event.code);
                     if (!this.pressedKeys.has(event.code)) {
@@ -887,6 +922,8 @@ export class CreateJS {
                     this.heldKeys.delete(event.code);
                     this.pressedKeys.delete(event.code);
                 });
+
+                this.createjsInstance = createjsInstance;
             }
 
             bind(object: ObjectType): typeof this {
@@ -939,22 +976,23 @@ export class CreateJS {
     }
 
     static Component = class CreateJS_Component {
-        private static components: CreateJS.Component[] = [];
-        id: string;
         classList: string[];
         filePath: string;
-        stylePath: string;
+        stylePath: string | undefined;
         component: HTMLDivElement | undefined;
+        className: string;
+        protected connectedCallback: ( component: CreateJS.Component ) => void = () => {};
+        protected disconnectedCallback: ( component: CreateJS.Component ) => void = () => {};
 
-        constructor(componentID: string, classList: string[], filePath: string, stylePath: string) {
-            this.id = componentID;
-            this.classList = classList;
+        constructor(className: string, filePath: string, stylePath?: string, classList: string[] = []) {
+            this.className = className;
             this.filePath = filePath;
             this.stylePath = stylePath;
+            this.classList = classList;
         }
 
-        async generate(atId?: string): Promise<void> {
-            if (!atId) {
+        async generate(atList?: string): Promise<void> {
+            if (!atList) {
                 this.component = document.createElement("div");
                 const element = await (await fetch(this.filePath)).text();
                 this.component.innerHTML = element;
@@ -964,21 +1002,34 @@ export class CreateJS {
                 const element = await (await fetch(this.filePath)).text();
                 this.component.innerHTML = element;
 
-                const foundElement = document.getElementById(atId);
-                if (!foundElement) throw new Error("Element " + atId + " was not found!");
-                foundElement.appendChild(this.component);
+                const foundElement = document.querySelectorAll(atList);
+                if (!foundElement) throw new Error("Elements " + atList + " was not found!");
+                foundElement.forEach(element => {
+                    if (this.component) element.appendChild(this.component);
+                });
             }
             
+            this.addClass(this.className);
             this.addClass(...this.classList);
 
-            const styleComponent = document.createElement("style");
-            const styles = await (await fetch(this.stylePath)).text();
-            styleComponent.innerHTML = styles;
-            document.head.appendChild(styleComponent);
+            if (this.stylePath) {
+                const styleComponent = document.createElement("style");
+                const styles = await (await fetch(this.stylePath)).text();
+                styleComponent.innerHTML = `.${this.className} { ${styles} }`;
+                document.head.appendChild(styleComponent);
+            }
+
+            this.connectedCallback(this);
+        }
+
+        clone(): CreateJS.Component {
+            return deepCloneObject(this);  
         }
 
         remove(): void {
             if (!this.component) throw new Error("Component does not exist!");
+
+            this.disconnectedCallback(this);
 
             this.component.remove();
             this.component = undefined;
@@ -1004,6 +1055,40 @@ export class CreateJS {
         removeClass(...classNames: string[]) {
             if (!this.component) throw new Error("Component does not exist!");
             this.component.classList.remove(...classNames);
+        }
+
+        setFunctionalityTo(selectors: string, listener: keyof ElementEventMap, callback: ( event: Event ) => void): void {
+            const elements = this.component?.querySelectorAll(selectors);
+            if (elements) {
+                elements.forEach(element => {
+                    element.addEventListener(listener, callback);
+                });
+            }
+        }
+
+        setPosition(position: CreateJS.Vec2): void {
+            if (!this.component) throw new Error("Component does not exist!");
+
+            this.component.style.position = "absolute";
+            this.component.style.left = position.x + "px";
+            this.component.style.top = position.y + "px";
+        }
+
+        getPosition(): CreateJS.Vec2 {
+            if (!this.component) throw new Error("Component does not exist!");
+            return new CreateJS.Vec2(this.component.getBoundingClientRect().left, this.component.getBoundingClientRect().top);
+        }
+
+        addOffset(offset: CreateJS.Vec2): void {
+            this.setPosition(this.getPosition().add(offset));
+        }
+
+        setConnectedCallback(callback: (component: CreateJS.Component) => void): void {
+            this.connectedCallback = callback;
+        }
+
+        setDisconnectedCallback(callback: ( component: CreateJS.Component ) => void): void {
+            this.disconnectedCallback = callback;
         }
     }
 
@@ -1248,6 +1333,13 @@ export class CreateJS {
         containsPoint(point: CreateJS.Vec2): boolean {
             return point.x <= this.x + this.width && point.x >= this.x && point.y <= this.y + this.height && point.y >= this.y;
         }
+
+        containsRect(rect: CreateJS.Rect) {
+            return this.containsPoint(new CreateJS.Vec2(rect.left(), rect.top())) &&
+                   this.containsPoint(new CreateJS.Vec2(rect.left(), rect.bottom())) &&
+                   this.containsPoint(new CreateJS.Vec2(rect.right(), rect.top())) &&
+                   this.containsPoint(new CreateJS.Vec2(rect.right(), rect.bottom()));
+        }
         
         containsPointExclusive(point: CreateJS.Vec2): boolean {
             return point.x < this.x + this.width && point.x > this.x && point.y < this.y + this.height && point.y > this.y;
@@ -1273,7 +1365,24 @@ export class CreateJS {
             return new CreateJS.Vec2(this.x + this.width / 2, this.y + this.height / 2);
         }
 
-        isOnTopOf(rect: CreateJS.Rect) {
+        alignX(): typeof this {
+            this.position.sub(new CreateJS.Vec2(this.width, 0));
+            return this;
+        }
+
+        alignY(): typeof this {
+            this.position.sub(new CreateJS.Vec2(0, this.height));
+            return this;
+        }
+
+        align(): typeof this {
+            this.position.sub(this.size);
+            return this;
+        }
+
+        isOnTopOf(rect: CreateJS.Rect | CreateJS.Area): boolean {
+            if (rect instanceof CreateJS.Area) 
+                return this.top() <= rect.bottom() && this.bottom() >= rect.bottom() && this.left() < rect.right() && this.right() > rect.left();
             return this.top() <= rect.top() && this.bottom() >= rect.top() && this.left() < rect.right() && this.right() > rect.left();
         }
 
@@ -1408,7 +1517,7 @@ export class CreateJS {
                 }
             }
 
-            update(time: number, bodies: CreateJS.Physics.Rigidbody[]): void {
+            update(time: number, bodies: CreateJS.Physics.Rigidbody[], areas: CreateJS.Area[]): void {
                 if (!this.isStatic) {
                     this.velocity.add(this.getAcceleration().mul(time));
                     this.velocity.mul(this.drag ** time);
@@ -1447,6 +1556,28 @@ export class CreateJS {
                     }
                 });
 
+                areas.forEach(area => {
+                    if (this.left() + this.velocity.x * time < area.left()) {
+                        if (!this.isStatic) this.position.add(new CreateJS.Vec2(area.left() - this.left(), 0));
+                        this.velocity.set(0, this.velocity.y);
+                    }
+
+                    if (this.right() + this.velocity.x * time > area.right()) {
+                        if (!this.isStatic) this.position.add(new CreateJS.Vec2(area.right() - this.right(), 0));
+                        this.velocity.set(0, this.velocity.y);
+                    }
+
+                    if (this.top() + this.velocity.y * time < area.top()) {
+                        if (!this.isStatic) this.position.add(new CreateJS.Vec2(0, area.top() - this.top()));
+                        this.velocity.set(this.velocity.x, -this.velocity.y * 0.5);
+                    }
+
+                    if (this.bottom() + this.velocity.y * time > area.bottom()) {
+                        if (!this.isStatic) this.position.add(new CreateJS.Vec2(0, area.bottom() - this.bottom()));
+                        this.velocity.set(this.velocity.x, 0);
+                    }
+                });
+
                 if (!this.isStatic) {
                     this.position.add(this.getVelocity().mul(time));
                     this.acceleration.zero();
@@ -1460,6 +1591,7 @@ export class CreateJS {
         }
 
         protected bodies: CreateJS.Physics.Rigidbody[] = [];
+        protected areas: CreateJS.Area[] = [];
         protected gravity: CreateJS.Vec2 = new CreateJS.Vec2();
 
         constructor() {}
@@ -1477,6 +1609,11 @@ export class CreateJS {
             return this;
         }
 
+        addAreas(...areas: CreateJS.Area[]): CreateJS.Physics {
+            this.areas.push(...areas);
+            return this;
+        }
+
         applyJumpTo(body: CreateJS.Physics.Rigidbody, multiplier: number, condition: (current: CreateJS.Physics.Rigidbody, other: CreateJS.Physics.Rigidbody) => boolean): void {
             let flag = false;
             this.bodies.forEach(other => {
@@ -1484,13 +1621,16 @@ export class CreateJS {
 
                 if (condition(body, other)) flag = true;
             });
+            this.areas.forEach(area => {
+                if (condition(body, area)) flag = true;
+            });
             if (flag) body.addAcceleration(this.gravity.clone().negate().add(this.gravity.clone().negate().mul(multiplier)));
         }
 
         update(time: number) {
             this.bodies.forEach(body => {
                 body.addAcceleration(this.gravity);
-                body.update(time, this.bodies);
+                body.update(time, this.bodies, this.areas);
             });
         }
     }
@@ -1659,7 +1799,7 @@ export class CreateJS {
         }
     }
 
-    static Area = class CreateJS_Area extends CreateJS.Rect {
+    static Area = class CreateJS_Area extends CreateJS.Physics.Rigidbody {
         protected frame: HTMLCanvasElement = document.createElement("canvas");
         protected floorFrame: HTMLCanvasElement = document.createElement("canvas");
         protected canDrawFrame: boolean = true;
@@ -1674,7 +1814,7 @@ export class CreateJS {
         floorHeight: number;
 
         constructor(x: number, y: number, width: number, height: number, image: CreateJS.Image, floorImage: CreateJS.Image, floorWidth: number, floorHeight: number, threshold: number) {
-            super(x, y, width, height);
+            super(true, x, y, width, height);
 
             this.threshold = threshold;
             this.image = image;
@@ -1699,6 +1839,10 @@ export class CreateJS {
                 this.canDrawFloorFrame = true;
             }
             return this;
+        }
+
+        clear(c: CanvasRenderingContext2D): void {
+            c.clearRect(this.x - this.threshold, this.y - this.threshold, this.width + this.threshold * 2, this.height + this.threshold * 2);
         }
 
         draw(c: CanvasRenderingContext2D): void {
@@ -1726,7 +1870,7 @@ export class CreateJS {
                 if (this.canDrawFloorFrame && !this.image.isStatic) {
                     this.canDrawFloorFrame = false;
     
-                    this.floorFrame = this.image.nextFrame();
+                    this.floorFrame = this.floorImage.nextFrame();
     
                     this.timeout = setTimeout(() => {
                         this.canDrawFloorFrame = true;
@@ -1734,13 +1878,14 @@ export class CreateJS {
                 };
 
                 if (this.image.isStatic) {
-                    this.floorFrame = this.image.nextFrame();
+                    this.floorFrame = this.floorImage.nextFrame();
                 }
 
                 const n = Math.floor(this.width / this.floorWidth);
                 for (let i = 0; i < n + 1; i++) {
                     c.drawImage(this.floorFrame, this.left() + this.floorWidth * i, this.bottom(), this.floorWidth, this.floorHeight);
                 }
+                c.clearRect(this.right(), this.bottom(), this.floorWidth, this.floorHeight);
             }
         }
     }
@@ -1844,30 +1989,23 @@ export class CreateJS {
             CreateJS.TimeHandler._pause = false;
         }
     }
-    
-    static mainThread: CreateJS | undefined = undefined;
 
     canvas: HTMLCanvasElement;
     c: CanvasRenderingContext2D;
     private _binded: CreateJS.Rect | undefined;
-    private _center: CreateJS.Vec2 = new CreateJS.Vec2(innerWidth / 2, innerHeight / 2);
+    private _center: CreateJS.Vec2 = new CreateJS.Vec2();
     rotateAngle: number = 0;
     translateOffset: CreateJS.Vec2 = new CreateJS.Vec2();
     scale: CreateJS.Vec2 = new CreateJS.Vec2(1, 1);
     private _backgroundColor: string = "white";
-    type: "main" | "secondary";
     initialOffset: CreateJS.Vec2 = new CreateJS.Vec2();
     objects: CreateJS.Rect[] = [];
     areas: CreateJS.Area[] = [];
+    changeOffset: { x: boolean, y: boolean } = { x: true, y: true }
 
-    constructor(canvas: HTMLCanvasElement, type: "main" | "secondary") {
+    constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
         this.c = canvas.getContext("2d")!;
-
-        this.type = type;
-        if (this.type === "main") {
-            CreateJS.mainThread = this;
-        }
     }
 
     init(): CreateJS {
@@ -1882,9 +2020,12 @@ export class CreateJS {
 
         this.c.imageSmoothingEnabled = false;
 
+        
         addEventListener("resize", () => {
             this.canvas.width = innerWidth;
             this.canvas.height = innerHeight;
+
+            this._center = new CreateJS.Vec2(this.canvas.width / 2, this.canvas.height / 2);
         });
 
         return this;
@@ -1893,6 +2034,8 @@ export class CreateJS {
     resizeCanvas(x: number, y: number): CreateJS {
         this.canvas.width = x;
         this.canvas.height = y;
+
+        this._center = new CreateJS.Vec2(this.canvas.width / 2, this.canvas.height / 2);
 
         return this;
     }
@@ -1904,9 +2047,9 @@ export class CreateJS {
         return this;
     }
 
-    bind(object: CreateJS.Rect, center?: CreateJS.Vec2): CreateJS {
+    bind(object: CreateJS.Rect, changeOffset: { x: boolean, y: boolean } = { x: true, y: true }): CreateJS {
         this._binded = object;
-        if (center) this._center = center;
+        this.changeOffset = changeOffset;
         return this;
     }
 
@@ -1929,7 +2072,7 @@ export class CreateJS {
         this.translateOffset = offset;
         return this;
     }
-
+ 
     addObjects(...objects: CreateJS.Rect[]) {
         this.objects.push(...objects);
     }
@@ -1945,12 +2088,21 @@ export class CreateJS {
         }
 
         this.c.save();
-        this.c.translate(this.translateOffset.x, this.translateOffset.y);
+        this.c.translate(this.changeOffset.x ? this.translateOffset.x : 0, this.changeOffset.y ? this.translateOffset.y : 0);
         this.c.rotate(this.rotateAngle);
         this.c.scale(this.scale.x, this.scale.y);
         this.c.imageSmoothingEnabled = false;
         this.c.fillStyle = this._backgroundColor;
-        this.c.fillRect(-this.translateOffset.x, -this.translateOffset.y, this.canvas.width, this.canvas.height);
+        this.c.fillRect(this.changeOffset.x ? -this.translateOffset.x : 0, this.changeOffset.y ? -this.translateOffset.y : 0, this.canvas.width, this.canvas.height);
+
+        this.areas.forEach(area => {
+            area.clear(this.c);
+            if (this._binded) {
+                if (area.containsRect(this._binded)) {
+                    area.draw(this.c);
+                }
+            }
+        });
 
         this.objects.forEach(object => {
             if (object.backgroundRendering) object.draw(this.c);

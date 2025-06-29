@@ -1,0 +1,33 @@
+& {
+    position: absolute;
+    top: 0;
+    left: 0;
+
+    display: flex;
+    justify-content: end;
+    width: 200px;
+    gap: 10px;
+    border: 1px solid lime;
+    border-radius: 4px;
+    padding: 5px;
+    background-color: black;
+}
+
+button {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    border: 0;
+}
+
+.red {
+    background-color: red;
+}
+
+.green {
+    background-color: lime;
+}
+
+.yellow {
+    background-color: yellow;
+}
